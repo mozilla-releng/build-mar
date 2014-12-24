@@ -3,11 +3,11 @@
 
 Utility for managing mar files"""
 
-### The canonical location for this file is
-###   https://hg.mozilla.org/build/tools/file/default/buildfarm/utils/mar.py
-###
-### Please update the copy in puppet to deploy new changes to
-### stage.mozilla.org, see
+# The canonical location for this file is
+#   https://hg.mozilla.org/build/tools/file/default/buildfarm/utils/mar.py
+#
+# Please update the copy in puppet to deploy new changes to
+# stage.mozilla.org, see
 # https://wiki.mozilla.org/ReleaseEngineering/How_To/Modify_scripts_on_stage
 
 import struct
@@ -284,7 +284,8 @@ class MarFile:
                         sig.keyfile = keyfile
                         break
                 else:
-                    print "no key specified to validate %i signature" % sig.algo_id
+                    print "no key specified to validate %i " \
+                        " signature" % sig.algo_id
                 self.signatures.append(sig)
 
     def verify_signatures(self):
@@ -391,8 +392,10 @@ class MarFile:
 
     def __del__(self):
         """Close the file when we're garbage collected"""
-        if self.fileobj:
+        try:
             self.close()
+        except IOError:
+            pass
 
     def _write_index(self):
         """Writes the index of all members at the end of the file"""
@@ -530,7 +533,9 @@ if __name__ == "__main__":
     parser.add_option("-v", "--verify", dest="verify", action="store_true",
                       help="verify the marfile")
     parser.add_option("-C", "--chdir", dest="chdir",
-                      help="chdir to this directory before creating or extracing; location of marfile isn't affected by this option.")
+                      help="chdir to this directory before creating or "
+                      "extracing; location of marfile isn't affected by "
+                      "this option.")
 
     options, args = parser.parse_args()
 
