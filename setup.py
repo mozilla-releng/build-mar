@@ -10,6 +10,6 @@ setup(
     url="https://github.com/mozilla/build-mar",
     license="MPL 2.0",
     description="MAR (Mozilla ARchive) Python implementation",
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     scripts=["mar/mar.py"],
 )

@@ -9,6 +9,9 @@ Utility for managing mar files"""
 # Please update the copy in puppet to deploy new changes to
 # stage.mozilla.org, see
 # https://wiki.mozilla.org/ReleaseEngineering/How_To/Modify_scripts_on_stage
+#
+# The MAR format is documented at
+# https://wiki.mozilla.org/Software_Update:MAR
 
 import struct
 import os
@@ -16,6 +19,9 @@ import bz2
 import hashlib
 import tempfile
 from subprocess import Popen, PIPE
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def rsa_sign(digest, keyfile):
@@ -114,13 +120,13 @@ class MarSignature:
 
     def verify_signature(self):
         if self.algo_id == 1:
-            print "digest is", self._hsh.hexdigest()
+            log.info("digest is %s", self._hsh.hexdigest())
             assert self.keyfile
             return rsa_verify(self._hsh.digest(), self.signature, self.keyfile)
 
     def write_signature(self, fp):
         assert self.keyfile
-        print "digest is", self._hsh.hexdigest()
+        log.info("digest is %s", self._hsh.hexdigest())
         self.signature = rsa_sign(self._hsh.digest(), self.keyfile)
         assert len(self.signature) == self.sigsize
         fp.seek(self._offset)
@@ -128,7 +134,7 @@ class MarSignature:
             packint(self.algo_id),
             packint(self.sigsize),
             self.signature))
-        print "wrote signature %s" % self.algo_id
+        log.info("wrote signature %s", self.algo_id)
 
 
 class MarInfo:
@@ -161,15 +167,15 @@ class MarInfo:
             raise ValueError("Malformed mar?")
         self._offset, self.size, self.flags = struct.unpack(
             cls._member_fmt, data)
-        name = ""
+        name = b""
         while True:
             c = fp.read(1)
             if c is None:
                 raise ValueError("Malformed mar?")
-            if c == "\x00":
+            if c == b"\x00":
                 break
             name += c
-        self.name = name
+        self.name = name.decode("ascii")
         return self
 
     def __repr__(self):
@@ -252,7 +258,7 @@ class MarFile:
         # Read the header
         header = fp.read(8)
         magic, self.index_offset = struct.unpack(">4sL", header)
-        if magic != "MAR1":
+        if magic != b"MAR1":
             raise ValueError("Bad magic")
         fp.seek(self.index_offset)
 
@@ -284,8 +290,8 @@ class MarFile:
                         sig.keyfile = keyfile
                         break
                 else:
-                    print "no key specified to validate %i " \
-                        " signature" % sig.algo_id
+                    log.info("no key specified to validate %i "
+                             " signature", sig.algo_id)
                 self.signatures.append(sig)
 
     def verify_signatures(self):
@@ -300,7 +306,7 @@ class MarFile:
             if not sig.verify_signature():
                 raise IOError("Verification failed")
             else:
-                print "Verification OK (%s)" % sig.algo_id
+                log.info("Verification OK (%s)", sig.algo_id)
 
     def _update_signatures(self, data):
         for sig in self.signatures:
@@ -330,7 +336,7 @@ class MarFile:
         if not fileobj:
             info.name = name or os.path.normpath(path)
             info.size = os.path.getsize(path)
-            info.flags = flags or os.stat(path).st_mode & 0777
+            info.flags = flags or os.stat(path).st_mode & 0o777
             info._offset = self.index_offset
 
             f = open(path, 'rb')
@@ -483,7 +489,7 @@ class BZ2MarFile(MarFile):
         info.name = name or os.path.normpath(path)
         info.size = 0
         if not fileobj:
-            info.flags = os.stat(path).st_mode & 0777
+            info.flags = os.stat(path).st_mode & 0o777
         else:
             info.flags = mode
         info._offset = self.index_offset
@@ -539,6 +545,8 @@ if __name__ == "__main__":
 
     options, args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     if not options.action:
         parser.error("Must specify something to do (one of -x, -t, -c)")
 
@@ -569,9 +577,9 @@ if __name__ == "__main__":
         m = mar_class(marfile, signature_versions=signatures)
         if options.verify:
             m.verify_signatures()
-        print "%-7s %-7s %-7s" % ("SIZE", "MODE", "NAME")
+        log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
         for m in m.members:
-            print "%-7i %04o    %s" % (m.size, m.flags, m.name)
+            log.info("%-7i %04o    %s", (m.size, m.flags, m.name))
 
     elif options.action == "create":
         if not files:
