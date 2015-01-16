@@ -403,6 +403,12 @@ class MarFile:
         except IOError:
             pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, value, traceback):
+        self.close()
+
     def _write_index(self):
         """Writes the index of all members at the end of the file"""
         self.fileobj.seek(self.index_offset + 4)
