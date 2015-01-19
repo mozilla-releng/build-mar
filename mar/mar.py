@@ -248,21 +248,25 @@ class MarFile:
             # Read the file's index
             self._read_index()
         elif mode == "w":
-            # Create placeholder signatures
-            if signature_versions:
-                # Space for num_signatures and file size
-                self.index_offset += 4 + 8
+            self._prepare_index()
 
-            # Write the magic and placeholder for the index
-            self.fileobj.write(b"MAR1" + packint(self.index_offset))
+    def _prepare_index(self):
+        # Create placeholder signatures
+        if self.signature_versions:
+            # Space for num_signatures and file size
+            self.index_offset += 4 + 8
 
+        # Write the magic and placeholder for the index
+        self.fileobj.write(b"MAR1" + packint(self.index_offset))
+
+        if self.signature_versions:
             # Write placeholder for file size
             self.fileobj.write(struct.pack(">Q", 0))
 
             # Write num_signatures
-            self.fileobj.write(packint(len(signature_versions)))
+            self.fileobj.write(packint(len(self.signature_versions)))
 
-            for algo_id, keyfile in signature_versions:
+            for algo_id, keyfile in self.signature_versions:
                 sig = MarSignature(algo_id, keyfile)
                 sig._offset = self.index_offset
                 self.index_offset += sig.size
