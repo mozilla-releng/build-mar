@@ -576,21 +576,20 @@ if __name__ == "__main__":
         os.chdir(options.chdir)
 
     if options.action == "extract":
-        m = mar_class(marfile)
-        m.extractall()
+        with mar_class(marfile) as m:
+            m.extractall()
 
     elif options.action == "list":
-        m = mar_class(marfile, signature_versions=signatures)
-        if options.verify:
-            m.verify_signatures()
-        log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
-        for m in m.members:
-            log.info("%-7i %04o    %s", (m.size, m.flags, m.name))
+        with mar_class(marfile, signature_versions=signatures) as m:
+            if options.verify:
+                m.verify_signatures()
+            log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
+            for m in m.members:
+                log.info("%-7i %04o    %s", (m.size, m.flags, m.name))
 
     elif options.action == "create":
         if not files:
             parser.error("Must specify at least one file to add to marfile")
-        m = mar_class(marfile, "w", signature_versions=signatures)
-        for f in files:
-            m.add(f)
-        m.close()
+        with mar_class(marfile, "w", signature_versions=signatures) as m:
+            for f in files:
+                m.add(f)
