@@ -394,13 +394,6 @@ class MarFile:
         self.fileobj.close()
         self.fileobj = None
 
-    def __del__(self):
-        """Close the file when we're garbage collected"""
-        try:
-            self.close()
-        except IOError:
-            pass
-
     def __enter__(self):
         return self
 
