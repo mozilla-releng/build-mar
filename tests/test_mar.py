@@ -107,8 +107,6 @@ class TestWritingMar(TestCase):
         with MarFile(marfile) as m:
             self.assertEquals(len(m.members), 1)
             self.assertEquals(m.members[0].size, os.path.getsize(__file__))
-            #assert False, os.path.join(self.tmpdir, m.members[0].name)
-            #assert False, m.members[0]
             extracted = m.extract(m.members[0], self.tmpdir)
             self.assertEquals(
                 open(extracted, 'rb').read(),
