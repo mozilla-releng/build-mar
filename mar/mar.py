@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 def read_file(fp, blocksize=8192):
     """Yields blocks of data from file object fp"""
-    for block in iter(partial(fp.read, blocksize), ''):
+    for block in iter(partial(fp.read, blocksize), b''):
         yield block
 
 
@@ -188,7 +188,7 @@ class MarInfo:
 
     def to_bytes(self):
         return struct.pack(self._member_fmt, self._offset, self.size, self.flags) + \
-            self.name + "\x00"
+            self.name.encode("ascii") + b"\x00"
 
 
 class MarFile:
@@ -236,7 +236,7 @@ class MarFile:
                 self.index_offset += 4 + 8
 
             # Write the magic and placeholder for the index
-            self.fileobj.write("MAR1" + packint(self.index_offset))
+            self.fileobj.write(b"MAR1" + packint(self.index_offset))
 
             # Write placeholder for file size
             self.fileobj.write(struct.pack(">Q", 0))

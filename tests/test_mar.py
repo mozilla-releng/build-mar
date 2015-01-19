@@ -4,9 +4,16 @@ import os
 import tempfile
 import hashlib
 
-from mar.mar import MarFile, BZ2MarFile
+from mar.mar import MarFile, BZ2MarFile, read_file
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
+
+
+def test_read_file():
+    data = []
+    for block in read_file(open(__file__, 'rb')):
+        data.append(block)
+    assert b''.join(data) == open(__file__, 'rb').read()
 
 
 def sha1sum(b):
@@ -26,7 +33,7 @@ def test_list():
     assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
 
 
-class TestMar(TestCase):
+class TestReadingMar(TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.marfile = MarFile(TEST_MAR)
@@ -48,7 +55,7 @@ class TestMar(TestCase):
         self.assertEquals("6a7890e740f1e18a425b51fefbde2f6b86f91a12", h)
 
 
-class TestBZ2Mar(TestCase):
+class TestReadingBZ2Mar(TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.marfile = BZ2MarFile(TEST_MAR)
@@ -70,6 +77,19 @@ class TestBZ2Mar(TestCase):
         data = open(fn, 'rb').read()
         h = sha1sum(data)
         self.assertEquals("5177f5938923e94820d8565a1a0f25d19b4821d1", h)
+
+
+class TestWritingMar(TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_add(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        with MarFile(marfile, 'w') as m:
+            m.add(__file__)
 
 
 class TestExceptions(TestCase):
