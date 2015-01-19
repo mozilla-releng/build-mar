@@ -356,26 +356,21 @@ class MarFile:
             return
 
         info = MarInfo()
+        info._offset = self.index_offset
+        info.size = 0
         if not fileobj:
-            info.name = name or os.path.normpath(path)
-            info.size = os.path.getsize(path)
+            fileobj = open(path, 'rb')
             info.flags = flags or os.stat(path).st_mode & 0o777
-            info._offset = self.index_offset
-
-            f = open(path, 'rb')
-            self.fileobj.seek(self.index_offset)
-            for block in read_file(f, 512 * 1024):
-                self.fileobj.write(block)
+            info.name = name or os.path.normpath(path)
         else:
             assert flags
-            info.name = name or path
-            info.size = 0
             info.flags = flags
-            info._offset = self.index_offset
-            self.fileobj.seek(self.index_offset)
-            for block in read_file(fileobj, 512 * 1024):
-                info.size += len(block)
-                self.fileobj.write(block)
+            info.name = name or path
+
+        self.fileobj.seek(self.index_offset)
+        for block in read_file(fileobj):
+            self.fileobj.write(block)
+            info.size += len(block)
 
         # Shift our index, and mark that we have to re-write it on close
         self.index_offset += info.size
