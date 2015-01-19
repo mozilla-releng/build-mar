@@ -19,9 +19,16 @@ import bz2
 import hashlib
 import tempfile
 from subprocess import Popen, PIPE
+from functools import partial
 
 import logging
 log = logging.getLogger(__name__)
+
+
+def read_file(fp, blocksize=8192):
+    """Yields blocks of data from file object fp"""
+    for block in iter(partial(fp.read, blocksize), b''):
+        yield block
 
 
 def rsa_sign(digest, keyfile):
@@ -78,10 +85,7 @@ def generate_signature(fp, updatefunc):
         fp.read(sigsize)
 
     # Read the rest of the file
-    while True:
-        block = fp.read(512 * 1024)
-        if not block:
-            break
+    for block in read_file(fp, 512 * 1024):
         updatefunc(block)
 
 
@@ -184,7 +188,7 @@ class MarInfo:
 
     def to_bytes(self):
         return struct.pack(self._member_fmt, self._offset, self.size, self.flags) + \
-            self.name + "\x00"
+            self.name.encode("ascii") + b"\x00"
 
 
 class MarFile:
@@ -232,7 +236,7 @@ class MarFile:
                 self.index_offset += 4 + 8
 
             # Write the magic and placeholder for the index
-            self.fileobj.write("MAR1" + packint(self.index_offset))
+            self.fileobj.write(b"MAR1" + packint(self.index_offset))
 
             # Write placeholder for file size
             self.fileobj.write(struct.pack(">Q", 0))
@@ -341,10 +345,7 @@ class MarFile:
 
             f = open(path, 'rb')
             self.fileobj.seek(self.index_offset)
-            while True:
-                block = f.read(512 * 1024)
-                if not block:
-                    break
+            for block in read_file(f, 512 * 1024):
                 self.fileobj.write(block)
         else:
             assert flags
@@ -353,10 +354,7 @@ class MarFile:
             info.flags = flags
             info._offset = self.index_offset
             self.fileobj.seek(self.index_offset)
-            while True:
-                block = fileobj.read(512 * 1024)
-                if not block:
-                    break
+            for block in read_file(fileobj, 512 * 1024):
                 info.size += len(block)
                 self.fileobj.write(block)
 
@@ -395,13 +393,6 @@ class MarFile:
 
         self.fileobj.close()
         self.fileobj = None
-
-    def __del__(self):
-        """Close the file when we're garbage collected"""
-        try:
-            self.close()
-        except IOError:
-            pass
 
     def __enter__(self):
         return self
@@ -444,6 +435,7 @@ class MarFile:
             os.makedirs(dirname)
 
         self.fileobj.seek(member._offset)
+        # TODO: Should this be done all in memory?
         open(dstpath, "wb").write(self.fileobj.read(member.size))
         os.chmod(dstpath, member.flags)
 
@@ -506,10 +498,7 @@ class BZ2MarFile(MarFile):
             f = fileobj
         comp = bz2.BZ2Compressor(9)
         self.fileobj.seek(self.index_offset)
-        while True:
-            block = f.read(512 * 1024)
-            if not block:
-                break
+        for block in read_file(f, 512 * 1024):
             block = comp.compress(block)
             info.size += len(block)
             self.fileobj.write(block)
