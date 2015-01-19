@@ -31,6 +31,24 @@ def read_file(fp, blocksize=8192):
         yield block
 
 
+def safe_join(parent, path):
+    """Returns $parent/$path
+
+    Raises IOError in case the resulting path ends up outside of parent for
+    some reason (e.g. by using ../../..)
+    """
+    while os.path.isabs(path):
+        path = path.lstrip("/")
+        drive, tail = os.path.splitdrive(path)
+        path = tail
+
+    path = os.path.normpath(path)
+    if path.startswith("../"):
+        raise IOError("unsafe join of %s/%s" % (parent, path))
+
+    return os.path.join(parent, path)
+
+
 def rsa_sign(digest, keyfile):
     proc = Popen(['openssl', 'pkeyutl', '-sign', '-inkey', keyfile],
                  stdin=PIPE, stdout=PIPE)
@@ -373,23 +391,23 @@ class MarFile:
         """Close the MAR file, writing out the new index if required.
 
         Furthur modifications to the file are not allowed."""
-        if self.mode == "w" and self.rewrite_index:
-            self._write_index()
+        if self.mode == "w":
+            if self.rewrite_index:
+                self._write_index()
 
-        # Update file size
-        self.fileobj.seek(0, 2)
-        totalsize = self.fileobj.tell()
-        self.fileobj.seek(8)
-        # print "File size is", totalsize, repr(struct.pack(">Q", totalsize))
-        self.fileobj.write(struct.pack(">Q", totalsize))
+            # Update file size
+            self.fileobj.seek(0, 2)
+            totalsize = self.fileobj.tell()
+            self.fileobj.seek(8)
+            self.fileobj.write(struct.pack(">Q", totalsize))
 
-        if self.mode == "w" and self.signatures:
-            self.fileobj.flush()
-            fileobj = open(self.name, 'rb')
-            generate_signature(fileobj, self._update_signatures)
-            for sig in self.signatures:
-                # print sig._offset
-                sig.write_signature(self.fileobj)
+            if self.mode == "w" and self.signatures:
+                self.fileobj.flush()
+                fileobj = open(self.name, 'rb')
+                generate_signature(fileobj, self._update_signatures)
+                for sig in self.signatures:
+                    # print sig._offset
+                    sig.write_signature(self.fileobj)
 
         self.fileobj.close()
         self.fileobj = None
@@ -428,8 +446,10 @@ class MarFile:
 
     def extract(self, member, path="."):
         """Extract `member` into `path` which defaults to the current
-        directory."""
-        dstpath = os.path.join(path, member.name)
+        directory. Absolute paths are converted to be relative to `path`
+
+        Returns the path the member was extracted to."""
+        dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -438,6 +458,8 @@ class MarFile:
         # TODO: Should this be done all in memory?
         open(dstpath, "wb").write(self.fileobj.read(member.size))
         os.chmod(dstpath, member.flags)
+
+        return dstpath
 
 
 class BZ2MarFile(MarFile):
