@@ -113,6 +113,19 @@ class TestWritingMar(TestCase):
                 open(__file__, 'rb').read()
             )
 
+    def test_bz2_add(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        with BZ2MarFile(marfile, 'w') as m:
+            m.add(__file__)
+
+        with BZ2MarFile(marfile) as m:
+            self.assertEquals(len(m.members), 1)
+            extracted = m.extract(m.members[0], self.tmpdir)
+            self.assertEquals(
+                open(extracted, 'rb').read(),
+                open(__file__, 'rb').read()
+            )
+
 
 class TestExceptions(TestCase):
     def test_badmar(self):

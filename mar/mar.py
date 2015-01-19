@@ -471,7 +471,7 @@ class BZ2MarFile(MarFile):
     def extract(self, member, path="."):
         """Extract and decompress `member` into `path` which defaults to the
         current directory."""
-        dstpath = os.path.join(path, member.name)
+        dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -489,6 +489,8 @@ class BZ2MarFile(MarFile):
             output.write(decomp.decompress(block))
         output.close()
         os.chmod(dstpath, member.flags)
+
+        return dstpath
 
     def add(self, path, name=None, fileobj=None, mode=None):
         """Adds `path` compressed with BZ2 to this MAR file.
