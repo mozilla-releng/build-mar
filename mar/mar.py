@@ -280,6 +280,7 @@ class MarFile:
         # Read the header
         header = fp.read(8)
         magic, self.index_offset = struct.unpack(">4sL", header)
+        log.debug("index_offset is %i", self.index_offset)
         if magic != b"MAR1":
             raise ValueError("Bad magic")
         fp.seek(self.index_offset)
@@ -395,13 +396,13 @@ class MarFile:
             if self.rewrite_index:
                 self._write_index()
 
-            # Update file size
-            self.fileobj.seek(0, 2)
-            totalsize = self.fileobj.tell()
-            self.fileobj.seek(8)
-            self.fileobj.write(struct.pack(">Q", totalsize))
-
             if self.mode == "w" and self.signatures:
+                # Update file size
+                self.fileobj.seek(0, 2)
+                totalsize = self.fileobj.tell()
+                self.fileobj.seek(8)
+                self.fileobj.write(struct.pack(">Q", totalsize))
+
                 self.fileobj.flush()
                 fileobj = open(self.name, 'rb')
                 generate_signature(fileobj, self._update_signatures)
@@ -420,6 +421,7 @@ class MarFile:
 
     def _write_index(self):
         """Writes the index of all members at the end of the file"""
+        log.debug("rewriting index at %i", self.index_offset + 4)
         self.fileobj.seek(self.index_offset + 4)
         index_size = 0
         for m in self.members:
@@ -597,7 +599,7 @@ def main():
                 m.verify_signatures()
             log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
             for m in m.members:
-                log.info("%-7i %04o    %s", (m.size, m.flags, m.name))
+                log.info("%-7i %04o    %s", m.size, m.flags, m.name)
 
     elif options.action == "create":
         if not files:
