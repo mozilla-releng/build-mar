@@ -521,7 +521,8 @@ class BZ2MarFile(MarFile):
         self.rewrite_index = True
         self.members.append(info)
 
-if __name__ == "__main__":
+
+def main():
     from optparse import OptionParser
 
     parser = OptionParser(__doc__)
@@ -593,3 +594,6 @@ if __name__ == "__main__":
         with mar_class(marfile, "w", signature_versions=signatures) as m:
             for f in files:
                 m.add(f)
+
+if __name__ == "__main__":
+    main()
