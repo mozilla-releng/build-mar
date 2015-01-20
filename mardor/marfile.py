@@ -61,6 +61,38 @@ class MarInfo:
             self.name.encode("ascii") + b"\x00"
 
 
+class AdditionalInfo:
+    size = None
+    _offset = None
+    data = None
+    block_id = None
+    name = None
+    info = None
+
+    @classmethod
+    def from_fileobj(cls, fp):
+        self = cls()
+        self._offset = fp.tell()
+        self.size = unpackint(fp.read(4))
+        self.block_id = unpackint(fp.read(4))
+        self.data = fp.read(self.size - 8)
+        self.info = {}
+
+        if self.block_id == 1:
+            self.name = "PRODUCT INFORMATION"
+            bits = self.data.split(b'\x00')
+            self.info['MARChannelName'] = bits[0]
+            self.info['ProductVersion'] = bits[1]
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
+
+        return self
+
+    def __repr__(self):
+        return "<AdditionalInfo: %s: %s>" % (self.name, self.info)
+
+
 class MarFile:
     """Represents a MAR file on disk.
 
@@ -83,6 +115,7 @@ class MarFile:
             self.fileobj = open(name, 'rb')
 
         self.members = []
+        self.additional_info = []
 
         # Current offset of our index in the file. This gets updated as we add
         # files to the MAR. This also refers to the end of the file until we've
@@ -185,6 +218,8 @@ class MarFile:
         num_sigs = unpackint(fp.read(4))
         log.debug("file_size: %i bytes", file_size)
         log.debug("%i signatures present", num_sigs)
+
+        signatures = []
         for i in range(num_sigs):
             sig = MarSignature.from_fileobj(fp)
             for algo_id, keyfile in self.signature_versions:
@@ -194,7 +229,7 @@ class MarFile:
             else:
                 log.info("no key specified to validate %i"
                          " signature", sig.algo_id)
-            self.signatures.append(sig)
+            signatures.append(sig)
 
         # Read additional sections; this is also only present if we have a
         # signature block
@@ -202,11 +237,11 @@ class MarFile:
         log.debug("%i additional sections present",
                   num_additional_sections)
         for i in range(num_additional_sections):
-            block_size = unpackint(fp.read(4))
-            block_id = unpackint(fp.read(4))
-            block_data = fp.read(block_size - 8)
-            log.debug("%i %i bytes: %s",
-                      block_id, block_size, repr(block_data))
+            info = AdditionalInfo.from_fileobj(fp)
+            log.debug("%s", info)
+            self.additional_info.append(info)
+
+        return signatures
 
     def verify_signatures(self):
         if not mardor.signing.crypto:
