@@ -4,16 +4,9 @@ import os
 import tempfile
 import hashlib
 
-from mar.mar import MarFile, BZ2MarFile, read_file
+from mardor.marfile import MarFile, BZ2MarFile
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
-
-
-def test_read_file():
-    data = []
-    for block in read_file(open(__file__, 'rb')):
-        data.append(block)
-    assert b''.join(data) == open(__file__, 'rb').read()
 
 
 def sha1sum(b):
@@ -24,13 +17,13 @@ def sha1sum(b):
 
 
 def test_list():
-    m = MarFile(TEST_MAR)
-    assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
-    assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
+    with MarFile(TEST_MAR) as m:
+        assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
+        assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
 
-    m = BZ2MarFile(TEST_MAR)
-    assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
-    assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
+    with BZ2MarFile(TEST_MAR) as m:
+        assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
+        assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
 
 
 class TestReadingMar(TestCase):
@@ -90,6 +83,28 @@ class TestWritingMar(TestCase):
         marfile = os.path.join(self.tmpdir, 'test.mar')
         with MarFile(marfile, 'w') as m:
             m.add(__file__)
+
+        with MarFile(marfile) as m:
+            self.assertEquals(len(m.members), 1)
+            self.assertEquals(m.members[0].size, os.path.getsize(__file__))
+            extracted = m.extract(m.members[0], self.tmpdir)
+            self.assertEquals(
+                open(extracted, 'rb').read(),
+                open(__file__, 'rb').read()
+            )
+
+    def test_bz2_add(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        with BZ2MarFile(marfile, 'w') as m:
+            m.add(__file__)
+
+        with BZ2MarFile(marfile) as m:
+            self.assertEquals(len(m.members), 1)
+            extracted = m.extract(m.members[0], self.tmpdir)
+            self.assertEquals(
+                open(extracted, 'rb').read(),
+                open(__file__, 'rb').read()
+            )
 
 
 class TestExceptions(TestCase):
