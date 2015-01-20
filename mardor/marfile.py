@@ -98,7 +98,7 @@ class MarFile:
 
         if mode == "r":
             # Read the file's index
-            self._read_index()
+            self._read()
         elif mode == "w":
             self._prepare_index()
 
@@ -130,69 +130,83 @@ class MarFile:
                 # space for signature
                 self.fileobj.write("\0" * sig.sigsize)
 
+    def _read(self):
+        self.index_offset = self._read_index()
+        self.members = self._read_members()
+
+        first_offset = self.members[0]._offset
+        # Read the signature block
+        # This present if the first file data begins at offset > 8
+        log.debug("first offset is %i", first_offset)
+        if first_offset > 8:
+            self.signatures = self._read_signatures()
+
     def _read_index(self):
         fp = self.fileobj
         fp.seek(0)
         # Read the header
         header = fp.read(8)
-        magic, self.index_offset = struct.unpack(">4sL", header)
-        log.debug("index_offset is %i", self.index_offset)
+        magic, index_offset = struct.unpack(">4sL", header)
+        log.debug("index_offset is %i", index_offset)
         if magic != b"MAR1":
             raise ValueError("Bad magic")
+        return index_offset
+
+    def _read_members(self):
+        log.debug("reading members")
+        fp = self.fileobj
         fp.seek(self.index_offset)
 
         # Read the index_size, we don't use it though
         # We just read all the info sections from here to the end of the file
         fp.read(4)
 
-        self.members = []
+        members = []
 
         while True:
             info = MarInfo.from_fileobj(fp)
             if not info:
                 break
-            self.members.append(info)
+            members.append(info)
 
         # Sort them by where they are in the file
-        self.members.sort(key=lambda info: info._offset)
+        members.sort(key=lambda info: info._offset)
+        return members
 
-        # Read the signature block
-        # This present if the first file data begins at offset > 8
-        first_offset = self.members[0]._offset
-        log.debug("first offset is %i", first_offset)
-        if first_offset > 8:
-            log.debug("reading signatures")
-            fp.seek(8)
-            file_size = unpacklongint(fp.read(8))
-            # Check that the file size matches
-            fp.seek(0, 2)
-            assert fp.tell() == file_size
-            fp.seek(16)
-            num_sigs = unpackint(fp.read(4))
-            log.debug("file_size: %i bytes", file_size)
-            log.debug("%i signatures present", num_sigs)
-            for i in range(num_sigs):
-                sig = MarSignature.from_fileobj(fp)
-                for algo_id, keyfile in self.signature_versions:
-                    if algo_id == sig.algo_id:
-                        sig.keyfile = keyfile
-                        break
-                else:
-                    log.info("no key specified to validate %i"
-                             " signature", sig.algo_id)
-                self.signatures.append(sig)
+    def _read_signatures(self):
+        fp = self.fileobj
+        log.debug("reading signatures")
+        fp.seek(8)
+        file_size = unpacklongint(fp.read(8))
+        # Check that the file size matches
+        fp.seek(0, 2)
+        assert fp.tell() == file_size
+        fp.seek(16)
+        num_sigs = unpackint(fp.read(4))
+        log.debug("file_size: %i bytes", file_size)
+        log.debug("%i signatures present", num_sigs)
+        for i in range(num_sigs):
+            sig = MarSignature.from_fileobj(fp)
+            for algo_id, keyfile in self.signature_versions:
+                if algo_id == sig.algo_id:
+                    sig.keyfile = keyfile
+                    break
+            else:
+                log.info("no key specified to validate %i"
+                         " signature", sig.algo_id)
+            self.signatures.append(sig)
 
         # Read additional sections; this is also only present if we have a
         # signature block
-            num_additional_sections = unpackint(fp.read(4))
-            log.debug("%i additional sections present",
-                      num_additional_sections)
-            for i in range(num_additional_sections):
-                block_size = unpackint(fp.read(4))
-                block_id = unpackint(fp.read(4))
-                block_data = fp.read(block_size - 8)
-                log.debug("%i %i bytes: %s",
-                          block_id, block_size, repr(block_data))
+        num_additional_sections = unpackint(fp.read(4))
+        log.debug("%i additional sections present",
+                  num_additional_sections)
+        for i in range(num_additional_sections):
+            block_size = unpackint(fp.read(4))
+            block_id = unpackint(fp.read(4))
+            block_data = fp.read(block_size - 8)
+            log.debug("%i %i bytes: %s",
+                      block_id, block_size, repr(block_data))
 
     def verify_signatures(self):
         if not mardor.signing.crypto:
