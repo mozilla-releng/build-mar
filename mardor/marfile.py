@@ -1,162 +1,14 @@
-#!/usr/bin/env python
-"""%prog [options] -x|-t|-c marfile [files]
-
-Utility for managing mar files"""
-
-# The canonical location for this file is
-#   https://hg.mozilla.org/build/tools/file/default/buildfarm/utils/mar.py
-#
-# Please update the copy in puppet to deploy new changes to
-# stage.mozilla.org, see
-# https://wiki.mozilla.org/ReleaseEngineering/How_To/Modify_scripts_on_stage
-#
-# The MAR format is documented at
-# https://wiki.mozilla.org/Software_Update:MAR
-
 import struct
 import os
 import bz2
-import hashlib
-import tempfile
-from subprocess import Popen, PIPE
-from functools import partial
+
+from mardor.bits import unpackint, packint, unpacklongint
+from mardor.utils import safe_join, read_file
+from mardor.signing import MarSignature, generate_signature
+import mardor.signing
 
 import logging
 log = logging.getLogger(__name__)
-
-
-def read_file(fp, blocksize=8192):
-    """Yields blocks of data from file object fp"""
-    for block in iter(partial(fp.read, blocksize), b''):
-        yield block
-
-
-def safe_join(parent, path):
-    """Returns $parent/$path
-
-    Raises IOError in case the resulting path ends up outside of parent for
-    some reason (e.g. by using ../../..)
-    """
-    while os.path.isabs(path):
-        path = path.lstrip("/")
-        drive, tail = os.path.splitdrive(path)
-        path = tail
-
-    path = os.path.normpath(path)
-    if path.startswith("../"):
-        raise IOError("unsafe join of %s/%s" % (parent, path))
-
-    return os.path.join(parent, path)
-
-
-def rsa_sign(digest, keyfile):
-    proc = Popen(['openssl', 'pkeyutl', '-sign', '-inkey', keyfile],
-                 stdin=PIPE, stdout=PIPE)
-    proc.stdin.write(digest)
-    proc.stdin.close()
-    sig = proc.stdout.read()
-    return sig
-
-
-def rsa_verify(digest, signature, keyfile):
-    tmp = tempfile.NamedTemporaryFile()
-    tmp.write(signature)
-    tmp.flush()
-    proc = Popen(['openssl', 'pkeyutl', '-pubin', '-verify', '-sigfile',
-                 tmp.name, '-inkey', keyfile], stdin=PIPE, stdout=PIPE)
-    proc.stdin.write(digest)
-    proc.stdin.close()
-    data = proc.stdout.read()
-    return "Signature Verified Successfully" in data
-
-
-def packint(i):
-    return struct.pack(">L", i)
-
-
-def unpackint(s):
-    return struct.unpack(">L", s)[0]
-
-
-def generate_signature(fp, updatefunc):
-    fp.seek(0)
-    # Magic
-    updatefunc(fp.read(4))
-    # index_offset
-    updatefunc(fp.read(4))
-    # file size
-    updatefunc(fp.read(8))
-    # number of signatures
-    num_sigs = fp.read(4)
-    updatefunc(num_sigs)
-    num_sigs = unpackint(num_sigs)
-    for i in range(num_sigs):
-        # signature algo
-        updatefunc(fp.read(4))
-
-        # signature size
-        sigsize = fp.read(4)
-        updatefunc(sigsize)
-        sigsize = unpackint(sigsize)
-
-        # Read this, but don't update the signature with it
-        fp.read(sigsize)
-
-    # Read the rest of the file
-    for block in read_file(fp, 512 * 1024):
-        updatefunc(block)
-
-
-class MarSignature:
-    """Represents a signature"""
-    size = None
-    sigsize = None
-    algo_id = None
-    signature = None
-    _offset = None  # where in the file this signature is located
-    keyfile = None  # what key to use
-
-    @classmethod
-    def from_fileobj(cls, fp):
-        _offset = fp.tell()
-        algo_id = unpackint(fp.read(4))
-        self = cls(algo_id)
-        self._offset = _offset
-        sigsize = unpackint(fp.read(4))
-        assert sigsize == self.sigsize
-        self.signature = fp.read(self.sigsize)
-        return self
-
-    def __init__(self, algo_id, keyfile=None):
-        self.algo_id = algo_id
-        self.keyfile = keyfile
-        if self.algo_id == 1:
-            self.sigsize = 256
-            self.size = self.sigsize + 4 + 4
-            self._hsh = hashlib.new('sha1')
-        else:
-            raise ValueError("Unsupported signature algorithm: %s" % algo_id)
-
-    def update(self, data):
-        self._hsh.update(data)
-
-    def verify_signature(self):
-        if self.algo_id == 1:
-            log.info("digest is %s", self._hsh.hexdigest())
-            assert self.keyfile
-            return rsa_verify(self._hsh.digest(), self.signature, self.keyfile)
-
-    def write_signature(self, fp):
-        assert self.keyfile
-        log.info("digest is %s", self._hsh.hexdigest())
-        self.signature = rsa_sign(self._hsh.digest(), self.keyfile)
-        assert len(self.signature) == self.sigsize
-        fp.seek(self._offset)
-        fp.write("%s%s%s" % (
-            packint(self.algo_id),
-            packint(self.sigsize),
-            self.signature))
-        log.info("wrote signature %s", self.algo_id)
 
 
 class MarInfo:
@@ -217,7 +69,7 @@ class MarFile:
                 defaults to 'r'
     """
 
-    _longint_fmt = ">L"
+    # TODO: Handle writing the product information block
 
     def __init__(self, name, mode="r", signature_versions=[]):
         if mode not in "rw":
@@ -304,12 +156,21 @@ class MarFile:
         # Sort them by where they are in the file
         self.members.sort(key=lambda info: info._offset)
 
-        # Read any signatures
+        # Read the signature block
+        # This present if the first file data begins at offset > 8
         first_offset = self.members[0]._offset
-        signature_offset = 16
-        if signature_offset < first_offset:
-            fp.seek(signature_offset)
+        log.debug("first offset is %i", first_offset)
+        if first_offset > 8:
+            log.debug("reading signatures")
+            fp.seek(8)
+            file_size = unpacklongint(fp.read(8))
+            # Check that the file size matches
+            fp.seek(0, 2)
+            assert fp.tell() == file_size
+            fp.seek(16)
             num_sigs = unpackint(fp.read(4))
+            log.debug("file_size: %i bytes", file_size)
+            log.debug("%i signatures present", num_sigs)
             for i in range(num_sigs):
                 sig = MarSignature.from_fileobj(fp)
                 for algo_id, keyfile in self.signature_versions:
@@ -317,15 +178,36 @@ class MarFile:
                         sig.keyfile = keyfile
                         break
                 else:
-                    log.info("no key specified to validate %i "
+                    log.info("no key specified to validate %i"
                              " signature", sig.algo_id)
                 self.signatures.append(sig)
 
+        # Read additional sections; this is also only present if we have a
+        # signature block
+            num_additional_sections = unpackint(fp.read(4))
+            log.debug("%i additional sections present",
+                      num_additional_sections)
+            for i in range(num_additional_sections):
+                block_size = unpackint(fp.read(4))
+                block_id = unpackint(fp.read(4))
+                block_data = fp.read(block_size - 8)
+                log.debug("%i %i bytes: %s",
+                          block_id, block_size, repr(block_data))
+
     def verify_signatures(self):
+        if not mardor.signing.crypto:
+            log.warning("no crypto modules loaded to check signatures "
+                        "(did you install the cryptography module?)")
+            raise IOError("Verification failed")
+
         if not self.signatures:
+            log.info("no signatures to verify")
             return
 
         fp = self.fileobj
+
+        for sig in self.signatures:
+            sig.init_verifier()
 
         generate_signature(fp, self._update_signatures)
 
@@ -333,7 +215,7 @@ class MarFile:
             if not sig.verify_signature():
                 raise IOError("Verification failed")
             else:
-                log.info("Verification OK (%s)", sig.algo_id)
+                log.info("Verification OK (%s)", sig.algo_name)
 
     def _update_signatures(self, data):
         for sig in self.signatures:
@@ -534,80 +416,3 @@ class BZ2MarFile(MarFile):
         self.index_offset += info.size
         self.rewrite_index = True
         self.members.append(info)
-
-
-def main():
-    from optparse import OptionParser
-
-    parser = OptionParser(__doc__)
-    parser.set_defaults(
-        action=None,
-        bz2=False,
-        chdir=None,
-        keyfile=None,
-        verify=False,
-    )
-    parser.add_option("-x", "--extract", action="store_const", const="extract",
-                      dest="action", help="extract MAR")
-    parser.add_option("-t", "--list", action="store_const", const="list",
-                      dest="action", help="print out MAR contents")
-    parser.add_option("-c", "--create", action="store_const", const="create",
-                      dest="action", help="create MAR")
-    parser.add_option("-j", "--bzip2", action="store_true", dest="bz2",
-                      help="compress/decompress members with BZ2")
-    parser.add_option("-k", "--keyfile", dest="keyfile",
-                      help="sign/verify with given key")
-    parser.add_option("-v", "--verify", dest="verify", action="store_true",
-                      help="verify the marfile")
-    parser.add_option("-C", "--chdir", dest="chdir",
-                      help="chdir to this directory before creating or "
-                      "extracing; location of marfile isn't affected by "
-                      "this option.")
-
-    options, args = parser.parse_args()
-
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-    if not options.action:
-        parser.error("Must specify something to do (one of -x, -t, -c)")
-
-    if not args:
-        parser.error("You must specify at least a marfile to work with")
-
-    marfile, files = args[0], args[1:]
-    marfile = os.path.abspath(marfile)
-
-    if options.bz2:
-        mar_class = BZ2MarFile
-    else:
-        mar_class = MarFile
-
-    signatures = []
-    if options.keyfile:
-        signatures.append((1, options.keyfile))
-
-    # Move into the directory requested
-    if options.chdir:
-        os.chdir(options.chdir)
-
-    if options.action == "extract":
-        with mar_class(marfile) as m:
-            m.extractall()
-
-    elif options.action == "list":
-        with mar_class(marfile, signature_versions=signatures) as m:
-            if options.verify:
-                m.verify_signatures()
-            log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
-            for m in m.members:
-                log.info("%-7i %04o    %s", m.size, m.flags, m.name)
-
-    elif options.action == "create":
-        if not files:
-            parser.error("Must specify at least one file to add to marfile")
-        with mar_class(marfile, "w", signature_versions=signatures) as m:
-            for f in files:
-                m.add(f)
-
-if __name__ == "__main__":
-    main()

@@ -4,29 +4,9 @@ import os
 import tempfile
 import hashlib
 
-from mar.mar import MarFile, BZ2MarFile, read_file, safe_join
+from mardor.marfile import MarFile, BZ2MarFile
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
-
-
-def test_read_file():
-    data = []
-    for block in read_file(open(__file__, 'rb')):
-        data.append(block)
-    assert b''.join(data) == open(__file__, 'rb').read()
-
-
-class TestSafeJoin(TestCase):
-    def test_normal(self):
-        self.assertEquals(safe_join("/a/b/c", "foo/bar"), "/a/b/c/foo/bar")
-
-    def test_absolute(self):
-        self.assertEquals(safe_join("/a/b/c", "/foo/bar"), "/a/b/c/foo/bar")
-        # TODO: Test windows support. os.path.isabs returns False for C:/ foo
-        # on linux
-
-    def test_unsafe(self):
-        self.assertRaises(IOError, safe_join, "/a/b/c", "foo/../../bar")
 
 
 def sha1sum(b):
