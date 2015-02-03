@@ -70,6 +70,19 @@ class AdditionalInfo:
     info = None
 
     @classmethod
+    def from_info(cls, info, block_id=1):
+        if block_id == 1:
+            self = cls()
+            self.name = "PRODUCT INFORMATION"
+            self.block_id = block_id
+            assert sorted(info.keys()) == ['MARChannelName', 'ProductVersion']
+            self.info = info
+            return self
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
+
+    @classmethod
     def from_fileobj(cls, fp):
         self = cls()
         self._offset = fp.tell()
@@ -81,13 +94,26 @@ class AdditionalInfo:
         if self.block_id == 1:
             self.name = "PRODUCT INFORMATION"
             bits = self.data.split(b'\x00')
-            self.info['MARChannelName'] = bits[0]
-            self.info['ProductVersion'] = bits[1]
+            self.info['MARChannelName'] = bits[0].decode('ascii')
+            self.info['ProductVersion'] = bits[1].decode('ascii')
         else:
             raise ValueError("Unsupported additional info section: %s" %
                              self.block_id)
 
         return self
+
+    def write(self, fp):
+        if self.block_id == 1:
+            mar_channel = self.info['MARChannelName'].encode('ascii')
+            product_version = self.info['ProductVersion'].encode('ascii')
+            data = mar_channel + b"\x00" + product_version + b"\x00"
+            self.size = len(data) + 8
+            fp.write(packint(self.size))
+            fp.write(packint(self.block_id))
+            fp.write(data)
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
 
     def __repr__(self):
         return "<AdditionalInfo: %s: %s>" % (self.name, self.info)
@@ -136,32 +162,36 @@ class MarFile:
             self._prepare_index()
 
     def _prepare_index(self):
-        # Create placeholder signatures
-        if self.signature_versions:
-            # Space for num_signatures and file size
-            self.index_offset += 4 + 8
+        # Add space for file size
+        self.index_offset += 8
+
+        # Space for num_signatures & num_additional_sections
+        self.index_offset += 4 + 4
 
         # Write the magic and placeholder for the index
         self.fileobj.write(b"MAR1" + packint(self.index_offset))
 
-        if self.signature_versions:
-            # Write placeholder for file size
-            self.fileobj.write(struct.pack(">Q", 0))
+        # Write placeholder for file size
+        self.fileobj.write(struct.pack(">Q", 0))
 
-            # Write num_signatures
-            self.fileobj.write(packint(len(self.signature_versions)))
+        # Write num_signatures
+        self.fileobj.write(packint(len(self.signature_versions)))
 
-            for algo_id, keyfile in self.signature_versions:
-                sig = MarSignature(algo_id, keyfile)
-                sig._offset = self.index_offset
-                self.index_offset += sig.size
-                self.signatures.append(sig)
-                # algoid
-                self.fileobj.write(packint(algo_id))
-                # numbytes
-                self.fileobj.write(packint(sig.sigsize))
-                # space for signature
-                self.fileobj.write("\0" * sig.sigsize)
+        # Write placeholder signatures
+        for algo_id, keyfile in self.signature_versions:
+            sig = MarSignature(algo_id, keyfile)
+            sig._offset = self.index_offset
+            self.index_offset += sig.size
+            self.signatures.append(sig)
+            # algoid
+            self.fileobj.write(packint(algo_id))
+            # numbytes
+            self.fileobj.write(packint(sig.sigsize))
+            # space for signature
+            self.fileobj.write("\0" * sig.sigsize)
+
+        # Write placeholder for number of additional sections
+        self.fileobj.write(packint(0))
 
     def _read(self):
         self.index_offset = self._read_index()
@@ -326,14 +356,21 @@ class MarFile:
             if self.rewrite_index:
                 self._write_index()
 
-            if self.mode == "w" and self.signatures:
-                # Update file size
-                self.fileobj.seek(0, 2)
-                totalsize = self.fileobj.tell()
-                self.fileobj.seek(8)
-                self.fileobj.write(struct.pack(">Q", totalsize))
+            # Update file size
+            self.fileobj.seek(0, 2)
+            totalsize = self.fileobj.tell()
+            self.fileobj.seek(8)
+            self.fileobj.write(struct.pack(">Q", totalsize))
 
-                self.fileobj.flush()
+            # Write additional info
+            self.fileobj.seek(20)
+            self.fileobj.write(struct.pack(">L", len(self.additional_info)))
+            for info in self.additional_info:
+                info.write(self.fileobj)
+
+            self.fileobj.flush()
+
+            if self.signatures:
                 fileobj = open(self.name, 'rb')
                 generate_signature(fileobj, self._update_signatures)
                 for sig in self.signatures:

@@ -4,7 +4,7 @@ import os
 import tempfile
 import hashlib
 
-from mardor.marfile import MarFile, BZ2MarFile
+from mardor.marfile import MarFile, BZ2MarFile, AdditionalInfo
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
 
@@ -20,10 +20,16 @@ def test_list():
     with MarFile(TEST_MAR) as m:
         assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
         assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
+        assert len(m.additional_info) == 1
+        assert m.additional_info[0].name == "PRODUCT INFORMATION"
+        assert m.additional_info[0].info == {'MARChannelName': 'thunderbird-comm-esr', 'ProductVersion': '100.0'}
 
     with BZ2MarFile(TEST_MAR) as m:
         assert repr(m.members[0]) == "<update.manifest 664 141 bytes starting at 392>", m.members[0]
         assert repr(m.members[1]) == "<defaults/pref/channel-prefs.js 664 76 bytes starting at 533>", m.members[1]
+        assert len(m.additional_info) == 1
+        assert m.additional_info[0].name == "PRODUCT INFORMATION"
+        assert m.additional_info[0].info == {'MARChannelName': 'thunderbird-comm-esr', 'ProductVersion': '100.0'}
 
 
 class TestReadingMar(TestCase):
@@ -104,6 +110,18 @@ class TestWritingMar(TestCase):
                 open(extracted, 'rb').read(),
                 open(__file__, 'rb').read()
             )
+
+    def test_additional_info(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        with MarFile(marfile, 'w') as m:
+            info = AdditionalInfo.from_info({'MARChannelName': 'test1', 'ProductVersion': '123'})
+            m.additional_info.append(info)
+            m.add(__file__)
+
+        with MarFile(marfile) as m:
+            self.assertEquals(len(m.additional_info), 1)
+            self.assertEquals(m.additional_info[0].name, 'PRODUCT INFORMATION')
+            self.assertEquals(m.additional_info[0].info, {'MARChannelName': 'test1', 'ProductVersion': '123'})
 
     def test_add_dir(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
