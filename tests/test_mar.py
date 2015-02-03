@@ -47,6 +47,17 @@ class TestReadingMar(TestCase):
         h = sha1sum(data)
         self.assertEquals("6a7890e740f1e18a425b51fefbde2f6b86f91a12", h)
 
+    def test_extractall(self):
+        self.marfile.extractall(self.tmpdir)
+
+        all_files = []
+        for root, dirs, files in os.walk(self.tmpdir):
+            for f in files:
+                all_files.append(os.path.join(root, f))
+
+        for member in self.marfile.members:
+            self.assertTrue(os.path.join(self.tmpdir, member.name) in all_files)
+
 
 class TestReadingBZ2Mar(TestCase):
     def setUp(self):
