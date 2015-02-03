@@ -61,6 +61,64 @@ class MarInfo:
             self.name.encode("ascii") + b"\x00"
 
 
+class AdditionalInfo:
+    size = None
+    _offset = None
+    data = None
+    block_id = None
+    name = None
+    info = None
+
+    @classmethod
+    def from_info(cls, info, block_id=1):
+        if block_id == 1:
+            self = cls()
+            self.name = "PRODUCT INFORMATION"
+            self.block_id = block_id
+            assert sorted(info.keys()) == ['MARChannelName', 'ProductVersion']
+            self.info = info
+            return self
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
+
+    @classmethod
+    def from_fileobj(cls, fp):
+        self = cls()
+        self._offset = fp.tell()
+        self.size = unpackint(fp.read(4))
+        self.block_id = unpackint(fp.read(4))
+        self.data = fp.read(self.size - 8)
+        self.info = {}
+
+        if self.block_id == 1:
+            self.name = "PRODUCT INFORMATION"
+            bits = self.data.split(b'\x00')
+            self.info['MARChannelName'] = bits[0].decode('ascii')
+            self.info['ProductVersion'] = bits[1].decode('ascii')
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
+
+        return self
+
+    def write(self, fp):
+        if self.block_id == 1:
+            mar_channel = self.info['MARChannelName'].encode('ascii')
+            product_version = self.info['ProductVersion'].encode('ascii')
+            data = mar_channel + b"\x00" + product_version + b"\x00"
+            self.size = len(data) + 8
+            fp.write(packint(self.size))
+            fp.write(packint(self.block_id))
+            fp.write(data)
+        else:
+            raise ValueError("Unsupported additional info section: %s" %
+                             self.block_id)
+
+    def __repr__(self):
+        return "<AdditionalInfo: %s: %s>" % (self.name, self.info)
+
+
 class MarFile:
     """Represents a MAR file on disk.
 
@@ -83,6 +141,7 @@ class MarFile:
             self.fileobj = open(name, 'rb')
 
         self.members = []
+        self.additional_info = []
 
         # Current offset of our index in the file. This gets updated as we add
         # files to the MAR. This also refers to the end of the file until we've
@@ -98,101 +157,121 @@ class MarFile:
 
         if mode == "r":
             # Read the file's index
-            self._read_index()
+            self._read()
         elif mode == "w":
             self._prepare_index()
 
     def _prepare_index(self):
-        # Create placeholder signatures
-        if self.signature_versions:
-            # Space for num_signatures and file size
-            self.index_offset += 4 + 8
+        # Add space for file size
+        self.index_offset += 8
+
+        # Space for num_signatures & num_additional_sections
+        self.index_offset += 4 + 4
 
         # Write the magic and placeholder for the index
         self.fileobj.write(b"MAR1" + packint(self.index_offset))
 
-        if self.signature_versions:
-            # Write placeholder for file size
-            self.fileobj.write(struct.pack(">Q", 0))
+        # Write placeholder for file size
+        self.fileobj.write(struct.pack(">Q", 0))
 
-            # Write num_signatures
-            self.fileobj.write(packint(len(self.signature_versions)))
+        # Write num_signatures
+        self.fileobj.write(packint(len(self.signature_versions)))
 
-            for algo_id, keyfile in self.signature_versions:
-                sig = MarSignature(algo_id, keyfile)
-                sig._offset = self.index_offset
-                self.index_offset += sig.size
-                self.signatures.append(sig)
-                # algoid
-                self.fileobj.write(packint(algo_id))
-                # numbytes
-                self.fileobj.write(packint(sig.sigsize))
-                # space for signature
-                self.fileobj.write("\0" * sig.sigsize)
+        # Write placeholder signatures
+        for algo_id, keyfile in self.signature_versions:
+            sig = MarSignature(algo_id, keyfile)
+            sig._offset = self.index_offset
+            self.index_offset += sig.size
+            self.signatures.append(sig)
+            # algoid
+            self.fileobj.write(packint(algo_id))
+            # numbytes
+            self.fileobj.write(packint(sig.sigsize))
+            # space for signature
+            self.fileobj.write("\0" * sig.sigsize)
+
+        # Write placeholder for number of additional sections
+        self.fileobj.write(packint(0))
+
+    def _read(self):
+        self.index_offset = self._read_index()
+        self.members = self._read_members()
+
+        first_offset = self.members[0]._offset
+        # Read the signature block
+        # This present if the first file data begins at offset > 8
+        log.debug("first offset is %i", first_offset)
+        if first_offset > 8:
+            self.signatures = self._read_signatures()
 
     def _read_index(self):
         fp = self.fileobj
         fp.seek(0)
         # Read the header
         header = fp.read(8)
-        magic, self.index_offset = struct.unpack(">4sL", header)
-        log.debug("index_offset is %i", self.index_offset)
+        magic, index_offset = struct.unpack(">4sL", header)
+        log.debug("index_offset is %i", index_offset)
         if magic != b"MAR1":
             raise ValueError("Bad magic")
+        return index_offset
+
+    def _read_members(self):
+        log.debug("reading members")
+        fp = self.fileobj
         fp.seek(self.index_offset)
 
         # Read the index_size, we don't use it though
         # We just read all the info sections from here to the end of the file
         fp.read(4)
 
-        self.members = []
+        members = []
 
         while True:
             info = MarInfo.from_fileobj(fp)
             if not info:
                 break
-            self.members.append(info)
+            members.append(info)
 
         # Sort them by where they are in the file
-        self.members.sort(key=lambda info: info._offset)
+        members.sort(key=lambda info: info._offset)
+        return members
 
-        # Read the signature block
-        # This present if the first file data begins at offset > 8
-        first_offset = self.members[0]._offset
-        log.debug("first offset is %i", first_offset)
-        if first_offset > 8:
-            log.debug("reading signatures")
-            fp.seek(8)
-            file_size = unpacklongint(fp.read(8))
-            # Check that the file size matches
-            fp.seek(0, 2)
-            assert fp.tell() == file_size
-            fp.seek(16)
-            num_sigs = unpackint(fp.read(4))
-            log.debug("file_size: %i bytes", file_size)
-            log.debug("%i signatures present", num_sigs)
-            for i in range(num_sigs):
-                sig = MarSignature.from_fileobj(fp)
-                for algo_id, keyfile in self.signature_versions:
-                    if algo_id == sig.algo_id:
-                        sig.keyfile = keyfile
-                        break
-                else:
-                    log.info("no key specified to validate %i"
-                             " signature", sig.algo_id)
-                self.signatures.append(sig)
+    def _read_signatures(self):
+        fp = self.fileobj
+        log.debug("reading signatures")
+        fp.seek(8)
+        file_size = unpacklongint(fp.read(8))
+        # Check that the file size matches
+        fp.seek(0, 2)
+        assert fp.tell() == file_size
+        fp.seek(16)
+        num_sigs = unpackint(fp.read(4))
+        log.debug("file_size: %i bytes", file_size)
+        log.debug("%i signatures present", num_sigs)
+
+        signatures = []
+        for i in range(num_sigs):
+            sig = MarSignature.from_fileobj(fp)
+            for algo_id, keyfile in self.signature_versions:
+                if algo_id == sig.algo_id:
+                    sig.keyfile = keyfile
+                    break
+            else:
+                log.info("no key specified to validate %i"
+                         " signature", sig.algo_id)
+            signatures.append(sig)
 
         # Read additional sections; this is also only present if we have a
         # signature block
-            num_additional_sections = unpackint(fp.read(4))
-            log.debug("%i additional sections present",
-                      num_additional_sections)
-            for i in range(num_additional_sections):
-                block_size = unpackint(fp.read(4))
-                block_id = unpackint(fp.read(4))
-                block_data = fp.read(block_size - 8)
-                log.debug("%i %i bytes: %s",
-                          block_id, block_size, repr(block_data))
+        num_additional_sections = unpackint(fp.read(4))
+        log.debug("%i additional sections present",
+                  num_additional_sections)
+        for i in range(num_additional_sections):
+            info = AdditionalInfo.from_fileobj(fp)
+            log.debug("%s", info)
+            self.additional_info.append(info)
+
+        return signatures
 
     def verify_signatures(self):
         if not mardor.signing.crypto:
@@ -277,14 +356,21 @@ class MarFile:
             if self.rewrite_index:
                 self._write_index()
 
-            if self.mode == "w" and self.signatures:
-                # Update file size
-                self.fileobj.seek(0, 2)
-                totalsize = self.fileobj.tell()
-                self.fileobj.seek(8)
-                self.fileobj.write(struct.pack(">Q", totalsize))
+            # Update file size
+            self.fileobj.seek(0, 2)
+            totalsize = self.fileobj.tell()
+            self.fileobj.seek(8)
+            self.fileobj.write(struct.pack(">Q", totalsize))
 
-                self.fileobj.flush()
+            # Write additional info
+            self.fileobj.seek(20)
+            self.fileobj.write(struct.pack(">L", len(self.additional_info)))
+            for info in self.additional_info:
+                info.write(self.fileobj)
+
+            self.fileobj.flush()
+
+            if self.signatures:
                 fileobj = open(self.name, 'rb')
                 generate_signature(fileobj, self._update_signatures)
                 for sig in self.signatures:
