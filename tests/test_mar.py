@@ -87,11 +87,38 @@ class TestWritingMar(TestCase):
         with MarFile(marfile) as m:
             self.assertEquals(len(m.members), 1)
             self.assertEquals(m.members[0].size, os.path.getsize(__file__))
+            self.assertEquals(m.members[0].flags, os.stat(__file__).st_mode & 0o777)
             extracted = m.extract(m.members[0], self.tmpdir)
             self.assertEquals(
                 open(extracted, 'rb').read(),
                 open(__file__, 'rb').read()
             )
+
+    def test_add_dir(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        dirname = os.path.dirname(__file__)
+        with MarFile(marfile, 'w') as m:
+            m.add(dirname)
+
+        # List out the files in dirname so we can compare
+        my_files = []
+        for root, dirs, files in os.walk(dirname):
+            for f in files:
+                my_files.append(os.path.join(root, f))
+
+        with MarFile(marfile) as m:
+            self.assertEquals(len(m.members), len(my_files))
+            for member in m.members:
+                self.assertTrue(member.name in my_files)
+                self.assertEquals(member.size, os.path.getsize(member.name))
+                self.assertEquals(member.flags, os.stat(member.name).st_mode & 0o777)
+
+                extracted = m.extract(member, self.tmpdir)
+                self.assertNotEquals(extracted, member.name)
+                self.assertEquals(
+                    open(extracted, 'rb').read(),
+                    open(member.name, 'rb').read()
+                )
 
     def test_bz2_add(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
@@ -105,6 +132,31 @@ class TestWritingMar(TestCase):
                 open(extracted, 'rb').read(),
                 open(__file__, 'rb').read()
             )
+
+    def test_bz2_add_dir(self):
+        marfile = os.path.join(self.tmpdir, 'test.mar')
+        dirname = os.path.dirname(__file__)
+        with BZ2MarFile(marfile, 'w') as m:
+            m.add(dirname)
+
+        # List out the files in dirname so we can compare
+        my_files = []
+        for root, dirs, files in os.walk(dirname):
+            for f in files:
+                my_files.append(os.path.join(root, f))
+
+        with BZ2MarFile(marfile) as m:
+            self.assertEquals(len(m.members), len(my_files))
+            for member in m.members:
+                self.assertTrue(member.name in my_files)
+                self.assertEquals(member.flags, os.stat(member.name).st_mode & 0o777)
+
+                extracted = m.extract(member, self.tmpdir)
+                self.assertNotEquals(extracted, member.name)
+                self.assertEquals(
+                    open(extracted, 'rb').read(),
+                    open(member.name, 'rb').read()
+                )
 
 
 class TestExceptions(TestCase):
