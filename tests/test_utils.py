@@ -1,5 +1,8 @@
 from unittest import TestCase
 
+from hypothesis.strategies import text
+from hypothesis import given
+
 from mardor.utils import read_file, safe_join
 
 
@@ -21,3 +24,9 @@ class TestSafeJoin(TestCase):
 
     def test_unsafe(self):
         self.assertRaises(IOError, safe_join, "/a/b/c", "foo/../../bar")
+
+
+@given(text(), text())
+def test_safe_join(a, b):
+    result = safe_join(a, b)
+    assert result.startswith(a)

@@ -30,27 +30,39 @@ class MarInfo:
     _member_fmt = ">LLL"
 
     @classmethod
+    def from_bytes(cls, data):
+        """Returns a MarInfo object represented by the given string of bytes.
+        Using a buffer/memoryview object is highly recommended!"""
+        self = cls()
+        if len(data) < 12:
+            raise ValueError("Malformed mar? (file header is too short)")
+
+        self._offset, self.size, self.flags = struct.unpack(cls._member_fmt,
+                                                            data[:12])
+        if data[-1] != 0:
+            raise ValueError("Malformed mar? (filename not null terminated)")
+
+        name = data[12:-1]
+        self.name = name.decode('ascii')
+        return self
+
+    @classmethod
     def from_fileobj(cls, fp):
         """Return a MarInfo object by reading open file object `fp`"""
-        self = cls()
-        data = fp.read(12)
+        data = bytearray(fp.read(12))
         if not data:
-            # EOF
             return None
-        if len(data) != 12:
-            raise ValueError("Malformed mar?")
-        self._offset, self.size, self.flags = struct.unpack(
-            cls._member_fmt, data)
-        name = b""
+
         while True:
             c = fp.read(1)
-            if c is None:
-                raise ValueError("Malformed mar?")
-            if c == b"\x00":
+            if not c:
+                raise ValueError('Malformed mar?')
+
+            data += c
+            if c == b'\x00':
                 break
-            name += c
-        self.name = name.decode("ascii")
-        return self
+
+        return cls.from_bytes(data)
 
     def __repr__(self):
         return "<%s %o %s bytes starting at %i>" % (
