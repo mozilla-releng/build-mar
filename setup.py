@@ -12,4 +12,7 @@ setup(
     description="MAR (Mozilla ARchive) Python implementation",
     long_description=open('README.md').read(),
     scripts=["scripts/mar.py"],
+    install_requires=[
+        "six",
+    ],
 )

@@ -1,6 +1,7 @@
 import struct
 import os
 import bz2
+from six import string_types
 
 from mardor.bits import unpackint, packint, unpacklongint
 from mardor.utils import safe_join, read_file
@@ -148,7 +149,7 @@ class MarFile:
         self.signatures = []
         self.signature_versions = signature_versions
 
-        if isinstance(name, basestring):
+        if isinstance(name, string_types):
             self.name = name
             self.mode = mode
             if mode == 'w':
