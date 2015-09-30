@@ -1,6 +1,7 @@
 import struct
 import os
 import bz2
+from six import string_types
 
 from mardor.bits import unpackint, packint, unpacklongint
 from mardor.utils import safe_join, read_file
@@ -122,9 +123,9 @@ class AdditionalInfo:
 class MarFile:
     """Represents a MAR file on disk.
 
-    `name`:     filename of MAR file
+    `name`:     filename or file object of MAR file
     `mode`:     either 'r' or 'w', depending on if you're reading or writing.
-                defaults to 'r'
+                defaults to 'r'. For file objects this value is ignored.
     """
 
     # TODO: Handle writing the product information block
@@ -132,13 +133,6 @@ class MarFile:
     def __init__(self, name, mode="r", signature_versions=[]):
         if mode not in "rw":
             raise ValueError("Mode must be either 'r' or 'w'")
-
-        self.name = name
-        self.mode = mode
-        if mode == 'w':
-            self.fileobj = open(name, 'wb')
-        else:
-            self.fileobj = open(name, 'rb')
 
         self.members = []
         self.additional_info = []
@@ -155,10 +149,23 @@ class MarFile:
         self.signatures = []
         self.signature_versions = signature_versions
 
-        if mode == "r":
+        if isinstance(name, string_types):
+            self.name = name
+            self.mode = mode
+            if mode == 'w':
+                self.fileobj = open(name, 'wb')
+            else:
+                self.fileobj = open(name, 'rb')
+        else:
+            # Assuming that a file object passed
+            self.name = name.name
+            self.mode = name.mode[0]
+            self.fileobj = name
+
+        if self.mode == "r":
             # Read the file's index
             self._read()
-        elif mode == "w":
+        elif self.mode == "w":
             self._prepare_index()
 
     def _prepare_index(self):
