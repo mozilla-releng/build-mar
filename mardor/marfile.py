@@ -31,8 +31,8 @@ class MarInfo:
 
     @classmethod
     def from_bytes(cls, data):
-        """Returns a MarInfo object represented by the given string of bytes.
-        Using a buffer/memoryview object is highly recommended!"""
+        """Returns a MarInfo object represented by the given bytearray"""
+        assert isinstance(data, bytearray)
         self = cls()
         if len(data) < 12:
             raise ValueError("Malformed mar? (file header is too short)")
