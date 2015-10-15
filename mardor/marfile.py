@@ -95,12 +95,16 @@ class AdditionalInfo:
                              self.block_id)
 
     @classmethod
-    def from_fileobj(cls, fp):
+    def from_bytes(cls, data, offset, size):
+        """Returns an AdditionalInfo object represended by the given bytearray.
+        Offset is where in the marfile this block is"""
+        assert isinstance(data, bytearray)
         self = cls()
-        self._offset = fp.tell()
-        self.size = unpackint(fp.read(4))
-        self.block_id = unpackint(fp.read(4))
-        self.data = fp.read(self.size - 8)
+
+        self._offset = offset
+        self.size = size
+        self.block_id = unpackint(data[:4])
+        self.data = data[4:]
         self.info = {}
 
         if self.block_id == 1:
@@ -113,6 +117,15 @@ class AdditionalInfo:
                              self.block_id)
 
         return self
+
+    @classmethod
+    def from_fileobj(cls, fp):
+        data = bytearray()
+        offset = fp.tell()
+        size = unpackint(fp.read(4))
+        data = bytearray(fp.read(size - 4))
+
+        return cls.from_bytes(data, offset, size)
 
     def write(self, fp):
         if self.block_id == 1:
