@@ -438,17 +438,21 @@ class MarFile:
         for m in members:
             self.extract(m, path)
 
-    def extract(self, member, path="."):
+    def extract(self, member, path=".", fileobj=None):
         """Extract `member` into `path` which defaults to the current
         directory. Absolute paths are converted to be relative to `path`
 
         Returns the path the member was extracted to."""
+        self.fileobj.seek(member._offset)
+        if fileobj:
+            fileobj.write(self.fileobj.read(member.size))
+            return
+
         dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        self.fileobj.seek(member._offset)
         # TODO: Should this be done all in memory?
         open(dstpath, "wb").write(self.fileobj.read(member.size))
         os.chmod(dstpath, member.flags)
@@ -460,16 +464,21 @@ class BZ2MarFile(MarFile):
     """Subclass of MarFile that compresses/decompresses members using BZ2.
 
     BZ2 compression is used for most update MARs."""
-    def extract(self, member, path="."):
+    def extract(self, member, path=".", fileobj=None):
         """Extract and decompress `member` into `path` which defaults to the
         current directory."""
+        self.fileobj.seek(member._offset)
+        decomp = bz2.BZ2Decompressor()
+        if fileobj:
+            data = self.fileobj.read(member.size)
+            fileobj.write(decomp.decompress(data))
+            return
+
         dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        self.fileobj.seek(member._offset)
-        decomp = bz2.BZ2Decompressor()
         output = open(dstpath, "wb")
         toread = member.size
         while True:
