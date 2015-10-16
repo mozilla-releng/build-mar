@@ -129,16 +129,20 @@ class MarFile:
 
     # TODO: Handle writing the product information block
 
-    def __init__(self, name, mode="r", signature_versions=[]):
+    def __init__(self, name, mode="r", fileobj=None, signature_versions=[]):
         if mode not in "rw":
             raise ValueError("Mode must be either 'r' or 'w'")
-
-        self.name = name
         self.mode = mode
-        if mode == 'w':
-            self.fileobj = open(name, 'wb')
+        if fileobj:
+            self.fileobj = fileobj
+            if hasattr(self.fileobj, "mode"):
+                # take the first letter of "rb"/"wb"
+                self.mode = fileobj.mode[0]
         else:
-            self.fileobj = open(name, 'rb')
+            if self.mode == 'w':
+                self.fileobj = open(name, 'wb')
+            else:
+                self.fileobj = open(name, 'rb')
 
         self.members = []
         self.additional_info = []
@@ -155,10 +159,10 @@ class MarFile:
         self.signatures = []
         self.signature_versions = signature_versions
 
-        if mode == "r":
+        if self.mode == "r":
             # Read the file's index
             self._read()
-        elif mode == "w":
+        elif self.mode == "w":
             self._prepare_index()
 
     def _prepare_index(self):
@@ -371,8 +375,9 @@ class MarFile:
             self.fileobj.flush()
 
             if self.signatures:
-                fileobj = open(self.name, 'rb')
-                generate_signature(fileobj, self._update_signatures)
+                curr_pos = self.fileobj.tell()
+                generate_signature(self.fileobj, self._update_signatures)
+                self.fileobj.seek(curr_pos)
                 for sig in self.signatures:
                     # print sig._offset
                     sig.write_signature(self.fileobj)
