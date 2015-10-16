@@ -1,15 +1,22 @@
 language: python
 sudo: false
-python:
-    - "3.5"
+
+matrix:
+    include:
+        - python: "2.7"
+          env: TOXENV=flake8
+        - python: "2.7"
+          env: TOXENV=py27
+        - python: "3.4"
+          env: TOXENV=py34
+        - python: "3.5"
+          env: TOXENV=py35
 
 install:
-    - travis_retry pip install tox
-
-before_script:
-    - pip install python-coveralls
+    - travis_retry pip install tox coveralls
 
 script: tox
 
 after_success:
-    - coveralls -i
+    - coveralls debug
+    - coveralls
