@@ -129,7 +129,7 @@ class MarFile:
 
     # TODO: Handle writing the product information block
 
-    def __init__(self, name, fileobj=None, mode="r", signature_versions=[]):
+    def __init__(self, name, mode="r", fileobj=None, signature_versions=[]):
         if mode not in "rw":
             raise ValueError("Mode must be either 'r' or 'w'")
         self.mode = mode

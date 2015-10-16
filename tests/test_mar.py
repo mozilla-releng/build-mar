@@ -136,7 +136,7 @@ class TestWritingMar(TestCase):
 
     def test_add_fo(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
-        with MarFile(None, open(marfile, "wb")) as m:
+        with MarFile(None, fileobj=open(marfile, "wb")) as m:
             m.add(__file__)
 
         with MarFile(None, fileobj=open(marfile, "rb")) as m:
