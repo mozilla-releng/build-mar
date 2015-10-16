@@ -98,7 +98,7 @@ class TestWritingMar(TestCase):
 
     def test_add(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
-        with MarFile(marfile, 'w') as m:
+        with MarFile(marfile, mode='w') as m:
             m.add(__file__)
 
         with MarFile(marfile) as m:
@@ -113,7 +113,7 @@ class TestWritingMar(TestCase):
 
     def test_additional_info(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
-        with MarFile(marfile, 'w') as m:
+        with MarFile(marfile, mode='w') as m:
             info = AdditionalInfo.from_info({'MARChannelName': 'test1', 'ProductVersion': '123'})
             m.additional_info.append(info)
             m.add(__file__)
@@ -126,7 +126,7 @@ class TestWritingMar(TestCase):
     def test_add_dir(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
         dirname = os.path.dirname(__file__)
-        with MarFile(marfile, 'w') as m:
+        with MarFile(marfile, mode='w') as m:
             m.add(dirname)
 
         # List out the files in dirname so we can compare
@@ -151,7 +151,7 @@ class TestWritingMar(TestCase):
 
     def test_bz2_add(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
-        with BZ2MarFile(marfile, 'w') as m:
+        with BZ2MarFile(marfile, mode='w') as m:
             m.add(__file__)
 
         with BZ2MarFile(marfile) as m:
@@ -165,7 +165,7 @@ class TestWritingMar(TestCase):
     def test_bz2_add_dir(self):
         marfile = os.path.join(self.tmpdir, 'test.mar')
         dirname = os.path.dirname(__file__)
-        with BZ2MarFile(marfile, 'w') as m:
+        with BZ2MarFile(marfile, mode='w') as m:
             m.add(dirname)
 
         # List out the files in dirname so we can compare
