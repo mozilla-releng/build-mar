@@ -17,3 +17,9 @@ class TestMarSignatures(TestCase):
         """Check that our test mar is signed correctly"""
         marfile = MarFile(TEST_MAR, signature_versions=[(1, TEST_KEY)])
         marfile.verify_signatures()
+
+    def test_verify_fo(self):
+        """Check that our test mar fileobject is signed correctly"""
+        marfile = MarFile(name=TEST_MAR, fileobj=open(TEST_MAR, "rb"),
+                          signature_versions=[(1, TEST_KEY)])
+        marfile.verify_signatures()
