@@ -4,7 +4,7 @@ import os
 import tempfile
 import hashlib
 
-from mardor.marfile import MarFile, BZ2MarFile, AdditionalInfo
+from mardor.marfile import MarFile, BZ2MarFile, AdditionalInfo, MarInfo
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
 
@@ -309,3 +309,27 @@ class TestExceptions(TestCase):
     def test_badmar_fo(self):
         self.assertRaises(ValueError, MarFile, name=None,
                           fileobj=open(__file__, "rb"))
+
+
+from hypothesis import given, example
+from hypothesis import strategies as st
+import struct
+import string
+
+class TestMarInfo(TestCase):
+    def test_goodinfo(self):
+        i = MarInfo.from_bytes(bytearray(b'\x00\x00\x12\x34\x00\x00\x56\x78\x00\x00\x00\x00filename\x00'))
+        self.assertEquals(i._offset, 0x1234)
+        self.assertEquals(i.size, 0x5678)
+        self.assertEquals(i.flags, 0)
+        self.assertEquals(i.name, 'filename')
+
+    @given(st.integers(0, 2**32-1), st.integers(0, 2**32-1), st.integers(0, 2**32-1), st.text(string.printable + string.whitespace))
+    @example(0x1234, 0x5678, 0, 'filename')
+    def test_badinfo(self, _offset, size, flags, filename):
+        data = bytearray(struct.pack('>LLL', _offset, size, flags) + filename.encode('ascii') + b'\x00')
+        i = MarInfo.from_bytes(bytearray(data))
+        self.assertEquals(i._offset, _offset)
+        self.assertEquals(i.size, size)
+        self.assertEquals(i.flags, flags)
+        self.assertEquals(i.name, filename)

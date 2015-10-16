@@ -30,27 +30,39 @@ class MarInfo:
     _member_fmt = ">LLL"
 
     @classmethod
+    def from_bytes(cls, data):
+        """Returns a MarInfo object represented by the given bytearray"""
+        assert isinstance(data, bytearray)
+        self = cls()
+        if len(data) < 12:
+            raise ValueError("Malformed mar? (file header is too short)")
+
+        self._offset, self.size, self.flags = struct.unpack(cls._member_fmt,
+                                                            data[:12])
+        if data[-1] != 0:
+            raise ValueError("Malformed mar? (filename not null terminated)")
+
+        name = data[12:-1]
+        self.name = name.decode('ascii')
+        return self
+
+    @classmethod
     def from_fileobj(cls, fp):
         """Return a MarInfo object by reading open file object `fp`"""
-        self = cls()
-        data = fp.read(12)
+        data = bytearray(fp.read(12))
         if not data:
-            # EOF
             return None
-        if len(data) != 12:
-            raise ValueError("Malformed mar?")
-        self._offset, self.size, self.flags = struct.unpack(
-            cls._member_fmt, data)
-        name = b""
+
         while True:
             c = fp.read(1)
-            if c is None:
-                raise ValueError("Malformed mar?")
-            if c == b"\x00":
+            if not c:
+                raise ValueError('Malformed mar?')
+
+            data += c
+            if c == b'\x00':
                 break
-            name += c
-        self.name = name.decode("ascii")
-        return self
+
+        return cls.from_bytes(data)
 
     def __repr__(self):
         return "<%s %o %s bytes starting at %i>" % (
@@ -83,12 +95,16 @@ class AdditionalInfo:
                              self.block_id)
 
     @classmethod
-    def from_fileobj(cls, fp):
+    def from_bytes(cls, data, offset, size):
+        """Returns an AdditionalInfo object represended by the given bytearray.
+        Offset is where in the marfile this block is"""
+        assert isinstance(data, bytearray)
         self = cls()
-        self._offset = fp.tell()
-        self.size = unpackint(fp.read(4))
-        self.block_id = unpackint(fp.read(4))
-        self.data = fp.read(self.size - 8)
+
+        self._offset = offset
+        self.size = size
+        self.block_id = unpackint(data[:4])
+        self.data = data[4:]
         self.info = {}
 
         if self.block_id == 1:
@@ -101,6 +117,15 @@ class AdditionalInfo:
                              self.block_id)
 
         return self
+
+    @classmethod
+    def from_fileobj(cls, fp):
+        data = bytearray()
+        offset = fp.tell()
+        size = unpackint(fp.read(4))
+        data = bytearray(fp.read(size - 4))
+
+        return cls.from_bytes(data, offset, size)
 
     def write(self, fp):
         if self.block_id == 1:
@@ -418,17 +443,21 @@ class MarFile:
         for m in members:
             self.extract(m, path)
 
-    def extract(self, member, path="."):
+    def extract(self, member, path=".", fileobj=None):
         """Extract `member` into `path` which defaults to the current
         directory. Absolute paths are converted to be relative to `path`
 
         Returns the path the member was extracted to."""
+        self.fileobj.seek(member._offset)
+        if fileobj:
+            fileobj.write(self.fileobj.read(member.size))
+            return
+
         dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        self.fileobj.seek(member._offset)
         # TODO: Should this be done all in memory?
         open(dstpath, "wb").write(self.fileobj.read(member.size))
         os.chmod(dstpath, member.flags)
@@ -440,16 +469,21 @@ class BZ2MarFile(MarFile):
     """Subclass of MarFile that compresses/decompresses members using BZ2.
 
     BZ2 compression is used for most update MARs."""
-    def extract(self, member, path="."):
+    def extract(self, member, path=".", fileobj=None):
         """Extract and decompress `member` into `path` which defaults to the
         current directory."""
+        self.fileobj.seek(member._offset)
+        decomp = bz2.BZ2Decompressor()
+        if fileobj:
+            data = self.fileobj.read(member.size)
+            fileobj.write(decomp.decompress(data))
+            return
+
         dstpath = safe_join(path, member.name)
         dirname = os.path.dirname(dstpath)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        self.fileobj.seek(member._offset)
-        decomp = bz2.BZ2Decompressor()
         output = open(dstpath, "wb")
         toread = member.size
         while True:
