@@ -1,6 +1,7 @@
 import struct
 import os
 import bz2
+import posixpath
 
 from mardor.bits import unpackint, packint, unpacklongint
 from mardor.utils import safe_join, read_file
@@ -69,8 +70,9 @@ class MarInfo:
             self.name, self.flags, self.size, self._offset)
 
     def to_bytes(self):
-        return struct.pack(self._member_fmt, self._offset, self.size, self.flags) + \
-            self.name.encode("ascii") + b"\x00"
+        return (struct.pack(
+            self._member_fmt, self._offset, self.size, self.flags) +
+            self.name.encode("ascii") + b"\x00")
 
 
 class AdditionalInfo:
@@ -355,11 +357,11 @@ class MarFile:
         if not fileobj:
             fileobj = open(path, 'rb')
             info.flags = flags or os.stat(path).st_mode & 0o777
-            info.name = name or os.path.normpath(path)
+            info.name = name or posixpath.normpath(path)
         else:
             assert flags
             info.flags = flags
-            info.name = name or path
+            info.name = name or posixpath.normpath(path)
 
         self.fileobj.seek(self.index_offset)
         for block in read_file(fileobj):
@@ -516,7 +518,7 @@ class BZ2MarFile(MarFile):
             self.add_dir(path)
             return
         info = MarInfo()
-        info.name = name or os.path.normpath(path)
+        info.name = name or posixpath.normpath(path)
         info.size = 0
         if not fileobj:
             info.flags = os.stat(path).st_mode & 0o777
