@@ -1,16 +1,16 @@
 import os
 
-from mardor.utils import openfile, bz2_compress_stream, file_writer
+from mardor.utils import bz2_compress_stream, file_writer
 from mardor.format import mar_header, sigs_header, extras_header, index_header
 from mardor.signing import make_signer_v1, calculate_signatures
 
 
 class MarWriter(object):
-    def __init__(self, filename_or_fileobj, compress='bz2',
+    def __init__(self, fileobj, compress='bz2',
                  productversion=None, channel=None,
                  signing_key=None,
                  ):
-        self.fileobj = openfile(filename_or_fileobj, 'w+')
+        self.fileobj = fileobj
         self.entries = []
         self.signature_offset = 8
         self.additional_offset = None

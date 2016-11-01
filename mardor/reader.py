@@ -2,23 +2,22 @@ import os
 
 from cryptography.exceptions import InvalidSignature
 
-from mardor.utils import (openfile, file_iter, imaxsize,
+from mardor.utils import (file_iter, imaxsize,
                           auto_decompress_stream, file_writer, mkdir)
 from mardor.format import mar
 from mardor.signing import calculate_signatures, make_verifier_v1
 
 
 class MarReader(object):
-    def __init__(self, filename_or_fileobj, decompress='auto',
+    def __init__(self, fileobj, decompress='auto',
                  verify_key=None):
-        self.fileobj = openfile(filename_or_fileobj)
+        self.fileobj = fileobj
         self.mardata = mar.parse_stream(self.fileobj)
         self.decompress = decompress
         self.verify_key = verify_key
 
     def close(self):
-        # TODO: Close this even if we've been passed a fileobj?
-        self.fileobj.close()
+        self.fileobj.flush()
 
     def __enter__(self):
         return self
@@ -51,7 +50,7 @@ class MarReader(object):
         verifiers = []
         for sig in self.mardata.signatures.sigs:
             if sig.algorithm_id == 1:
-                verifier = make_verifier_v1(self.public_key, sig.signature)
+                verifier = make_verifier_v1(self.verify_key, sig.signature)
                 verifiers.append(verifier)
             else:
                 raise ValueError('Unsupported algoritm')
