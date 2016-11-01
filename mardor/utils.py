@@ -1,26 +1,78 @@
+#!/usr/bin/env python
 import os
+import bz2
 from functools import partial
+from itertools import chain
 
 
-def read_file(fp, blocksize=8192):
-    """Yields blocks of data from file object fp"""
-    for block in iter(partial(fp.read, blocksize), b''):
+def mkdir(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno == 17:
+            return
+        raise
+
+
+def file_iter(f):
+    for block in iter(partial(f.read, 1024**2), b''):
         yield block
 
 
-def safe_join(parent, path):
-    """Returns $parent/$path
+def imaxsize(iterable, size):
+    '''
+    yields blocks from iterable until len(size) have been returned
+    '''
+    total = 0
+    for block in iterable:
+        n = min(len(block), size - total)
+        block = block[:n]
+        if not block:
+            break
+        yield block
+        total += len(block)
 
-    Raises IOError in case the resulting path ends up outside of parent for
-    some reason (e.g. by using ../../..)
-    """
-    while os.path.isabs(path):
-        path = path.lstrip("/")
-        drive, tail = os.path.splitdrive(path)
-        path = tail
 
-    path = os.path.normpath(path)
-    if path.startswith("../"):
-        raise IOError("unsafe join of %s/%s" % (parent, path))
+def file_writer(src, dst):
+    n = 0
+    for block in src:
+        dst.write(block)
+        n += len(block)
+    return n
 
-    return os.path.join(parent, path)
+
+def bz2_decompress_stream(src):
+    dec = bz2.BZ2Decompressor()
+    for block in src:
+        decoded = dec.decompress(block)
+        if decoded:
+            yield decoded
+
+
+def auto_decompress_stream(src):
+    block = src.next()
+    if block.startswith(b'BZ'):
+        src = bz2_decompress_stream(chain([block], src))
+    else:
+        src = chain([block], src)
+
+    for block in src:
+        yield block
+
+
+def bz2_compress_stream(src, level=9):
+    compressor = bz2.BZ2Compressor(level)
+    for block in src:
+        encoded = compressor.compress(block)
+        if encoded:
+            yield encoded
+    encoded = compressor.flush()
+    if encoded:
+        yield encoded
+
+
+def openfile(filename_or_fileobj, mode='r'):
+    if hasattr(filename_or_fileobj, 'read'):
+        return filename_or_fileobj
+    else:
+        return open(filename_or_fileobj, mode)
