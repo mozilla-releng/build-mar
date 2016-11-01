@@ -69,10 +69,3 @@ def bz2_compress_stream(src, level=9):
     encoded = compressor.flush()
     if encoded:
         yield encoded
-
-
-def openfile(filename_or_fileobj, mode='r'):
-    if hasattr(filename_or_fileobj, 'read'):
-        return filename_or_fileobj
-    else:
-        return open(filename_or_fileobj, mode + 'b')
