@@ -50,8 +50,8 @@ def bz2_decompress_stream(src):
 
 
 def auto_decompress_stream(src):
-    block = src.next()
-    if block.startswith(b'BZ'):
+    block = next(src)
+    if block.startswith(b'BZh'):
         src = bz2_decompress_stream(chain([block], src))
     else:
         src = chain([block], src)

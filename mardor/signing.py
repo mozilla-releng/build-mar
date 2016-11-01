@@ -36,27 +36,24 @@ def calculate_signatures(fileobj, filesize, hashers):
 
 
 def make_verifier_v1(public_key, signature):
-    with open(public_key, 'rb') as keyfile:
-        key = serialization.load_pem_public_key(
-            keyfile.read(),
-            backend=default_backend(),
-        )
-        verifier = key.verifier(
-            signature,
-            padding.PKCS1v15(),
-            hashes.SHA1(),
-        )
-        return verifier
+    key = serialization.load_pem_public_key(
+        public_key,
+        backend=default_backend(),
+    )
+    verifier = key.verifier(
+        signature,
+        padding.PKCS1v15(),
+        hashes.SHA1(),
+    )
+    return verifier
 
 
 def make_signer_v1(private_key):
-    # TODO: accept bytes too?
-    with open(private_key, 'rb') as keyfile:
-        key = serialization.load_pem_private_key(
-            keyfile.read(),
-            password=None,
-            backend=default_backend(),
-        )
+    key = serialization.load_pem_private_key(
+        private_key,
+        password=None,
+        backend=default_backend(),
+    )
     signer = key.signer(
         padding.PKCS1v15(),
         hashes.SHA1(),
