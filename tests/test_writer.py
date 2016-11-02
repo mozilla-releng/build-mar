@@ -25,6 +25,28 @@ def test_writer(tmpdir):
                     b'hello world')
 
 
+def test_writer_adddir(tmpdir):
+    tmpdir.mkdir('foo')
+    message_p = tmpdir.join('foo', 'message.txt')
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with MarWriter(f) as m:
+            with tmpdir.as_cwd():
+                m.add('foo')
+
+    assert mar_p.size() > 0
+
+    with mar_p.open('rb') as f:
+        with MarReader(f) as m:
+            assert m.mardata.additional is None
+            assert m.mardata.signatures is None
+            assert len(m.mardata.index.entries) == 1
+            assert m.mardata.index.entries[0].name == 'foo/message.txt'
+            m.extract(str(tmpdir.join('extracted')))
+            assert (tmpdir.join('extracted', 'foo', 'message.txt').read('rb') ==
+                    b'hello world')
+
 def test_additional(tmpdir):
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
