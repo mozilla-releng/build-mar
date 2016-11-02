@@ -19,18 +19,35 @@ def file_iter(f):
         yield block
 
 
-def imaxsize(iterable, size):
+def takeexactly(iterable, size):
     '''
-    yields blocks from iterable until at most len(size) have been returned
+    Yields blocks from `iterable` until exactly len(size) have been returned.
+
+    Args:
+        iterable (iterable): Any iterable that yields sliceable objects that
+                             have length.
+        size (int): How much data to consume
+
+    Yields:
+        blocks from `iterable` such that
+        sum(len(block) for block in takeexactly(iterable, size)) == size
+
+    Raises:
+        ValueError if there is less than `size` data in `iterable`
     '''
     total = 0
     for block in iterable:
         n = min(len(block), size - total)
         block = block[:n]
-        if not block:
-            break
-        yield block
+        if block:
+            yield block
         total += len(block)
+        if total >= size:
+            break
+    if total < size:
+        raise ValueError('not enough data (yielded {} of {})')
+
+    assert total == size
 
 
 def file_writer(src, dst):
@@ -39,6 +56,17 @@ def file_writer(src, dst):
         dst.write(block)
         n += len(block)
     return n
+
+
+def bz2_compress_stream(src, level=9):
+    compressor = bz2.BZ2Compressor(level)
+    for block in src:
+        encoded = compressor.compress(block)
+        if encoded:
+            yield encoded
+    encoded = compressor.flush()
+    if encoded:
+        yield encoded
 
 
 def bz2_decompress_stream(src):
@@ -58,14 +86,3 @@ def auto_decompress_stream(src):
 
     for block in src:
         yield block
-
-
-def bz2_compress_stream(src, level=9):
-    compressor = bz2.BZ2Compressor(level)
-    for block in src:
-        encoded = compressor.compress(block)
-        if encoded:
-            yield encoded
-    encoded = compressor.flush()
-    if encoded:
-        yield encoded

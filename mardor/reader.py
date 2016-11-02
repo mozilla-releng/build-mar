@@ -2,7 +2,7 @@ import os
 
 from cryptography.exceptions import InvalidSignature
 
-from mardor.utils import (file_iter, imaxsize, auto_decompress_stream,
+from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
                           file_writer, mkdir)
 from mardor.format import mar
 from mardor.signing import calculate_signatures, make_verifier_v1
@@ -30,7 +30,7 @@ class MarReader(object):
         with open(path, 'wb') as f:
             self.fileobj.seek(e.offset)
             stream = file_iter(self.fileobj)
-            stream = imaxsize(stream, e.size)
+            stream = takeexactly(stream, e.size)
             if self.decompress == 'auto':
                 stream = auto_decompress_stream(stream)
             file_writer(stream, f)
