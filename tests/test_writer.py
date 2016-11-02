@@ -1,3 +1,5 @@
+import bz2
+
 from mardor.writer import MarWriter
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
@@ -46,6 +48,52 @@ def test_writer_adddir(tmpdir):
             m.extract(str(tmpdir.join('extracted')))
             assert (tmpdir.join('extracted', 'foo', 'message.txt').read('rb') ==
                     b'hello world')
+
+
+def test_writer_uncompressed(tmpdir):
+    message_p = tmpdir.join('message.txt')
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with MarWriter(f, compress=None) as m:
+            with tmpdir.as_cwd():
+                m.add('message.txt')
+
+    assert mar_p.size() > 0
+
+    with mar_p.open('rb') as f:
+        with MarReader(f) as m:
+            assert m.mardata.additional is None
+            assert m.mardata.signatures is None
+            assert len(m.mardata.index.entries) == 1
+            assert m.mardata.index.entries[0].name == 'message.txt'
+            m.extract(str(tmpdir.join('extracted')))
+            assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
+                    b'hello world')
+
+
+def test_writer_compressed(tmpdir):
+    message_p = tmpdir.join('message.txt')
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with MarWriter(f) as m:
+            with tmpdir.as_cwd():
+                m.add('message.txt')
+
+    assert mar_p.size() > 0
+
+    message_compressed = bz2.compress(b'hello world')
+
+    with mar_p.open('rb') as f:
+        with MarReader(f, decompress=None) as m:
+            assert m.mardata.additional is None
+            assert m.mardata.signatures is None
+            assert len(m.mardata.index.entries) == 1
+            assert m.mardata.index.entries[0].name == 'message.txt'
+            m.extract(str(tmpdir.join('extracted')))
+            assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
+                    message_compressed)
 
 def test_additional(tmpdir):
     message_p = tmpdir.join('message.txt')
