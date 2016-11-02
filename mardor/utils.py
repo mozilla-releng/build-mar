@@ -21,7 +21,7 @@ def file_iter(f):
 
 def imaxsize(iterable, size):
     '''
-    yields blocks from iterable until len(size) have been returned
+    yields blocks from iterable until at most len(size) have been returned
     '''
     total = 0
     for block in iterable:

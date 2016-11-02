@@ -58,7 +58,7 @@ class MarWriter(object):
     def add_file(self, path):
         self.fileobj.seek(self.last_offset)
 
-        with open(path) as f:
+        with open(path, 'rb') as f:
             if self.compress == 'bz2':
                 f = bz2_compress_stream(f)
             size = file_writer(f, self.fileobj)
@@ -71,7 +71,7 @@ class MarWriter(object):
             flags=os.stat(path).st_mode & 0o777,
         )
         self.entries.append(e)
-        self.last_offset += e.size
+        self.last_offset += e['size']
 
     def write_header(self):
         self.fileobj.seek(0)

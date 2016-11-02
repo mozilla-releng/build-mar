@@ -38,6 +38,7 @@ class MarReader(object):
     def extract(self, destdir):
         for e in self.mardata.index.entries:
             name = e.name
+            # TODO: Sanity check these
             entry_path = os.path.join(destdir, name)
             entry_dir = os.path.dirname(entry_path)
             mkdir(entry_dir)
