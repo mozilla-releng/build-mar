@@ -3,7 +3,7 @@ from itertools import repeat
 import pytest
 
 from mardor.utils import (takeexactly, bz2_compress_stream,
-                          bz2_decompress_stream, auto_decompress_stream)
+                          bz2_decompress_stream, auto_decompress_stream, mkdir)
 
 from hypothesis import given, assume
 import hypothesis.strategies as st
@@ -39,6 +39,12 @@ def test_bz2_stream_large():
     assert b''.join(stream) == b'hello' * n
 
 
+def test_bz2_stream_exact_blocksize():
+    stream = [b'0' * 100000]
+    stream = bz2_decompress_stream(bz2_compress_stream(stream, level=1))
+    assert b''.join(stream) == b'0' * 100000
+
+
 def test_auto_decompress():
     n = 10000
     stream = repeat(b'hello', n)
@@ -49,3 +55,23 @@ def test_auto_decompress():
     stream = repeat(b'hello', n)
     stream = auto_decompress_stream(stream)
     assert b''.join(stream) == b'hello' * n
+
+
+def test_mkdir(tmpdir):
+    d = tmpdir.join('foo')
+    mkdir(str(d))
+    assert d.isdir()
+
+
+def test_mkdir_existing(tmpdir):
+    d = tmpdir.join('foo')
+    d.mkdir()
+    mkdir(str(d))
+    assert d.isdir()
+
+
+def test_mkdir_existingfile(tmpdir):
+    d = tmpdir.join('foo')
+    d.write('helloworld')
+    with pytest.raises(OSError):
+        mkdir(str(d))

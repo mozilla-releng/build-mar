@@ -9,7 +9,7 @@ def mkdir(path):
     try:
         os.makedirs(path)
     except OSError as e:
-        if e.errno == 17:
+        if e.errno == 17 and os.path.isdir(path):
             return
         raise
 
@@ -64,9 +64,7 @@ def bz2_compress_stream(src, level=9):
         encoded = compressor.compress(block)
         if encoded:
             yield encoded
-    encoded = compressor.flush()
-    if encoded:
-        yield encoded
+    yield compressor.flush()
 
 
 def bz2_decompress_stream(src):
