@@ -1,6 +1,10 @@
-from mardor.reader import MarReader
 import os
 import bz2
+
+import pytest
+
+from mardor.reader import MarReader
+from mardor.signing import make_rsa_keypair
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
 TEST_PUBKEY = os.path.join(os.path.dirname(__file__), 'test.pubkey')
@@ -24,29 +28,22 @@ def test_parsing():
 
 def test_verify():
     pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(open(TEST_MAR, 'rb'), verify_key=pubkey) as m:
-        assert m.verify()
-
-
-def test_verify_nokey():
     with MarReader(open(TEST_MAR, 'rb')) as m:
-        assert not m.verify()
+        assert m.verify(pubkey)
 
 
 def test_verify_wrongkey():
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.hazmat.primitives import serialization
-    private_key = rsa.generate_private_key(
-             public_exponent=65537,
-             key_size=2048,
-             backend=default_backend()
-    )
-    public_key = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo)
-    with MarReader(open(TEST_MAR, 'rb'), verify_key=public_key) as m:
-        assert not m.verify()
+    private, public = make_rsa_keypair()
+    with MarReader(open(TEST_MAR, 'rb')) as m:
+        assert not m.verify(public)
+
+
+def test_verify_unsupportedalgo():
+    pubkey = open(TEST_PUBKEY, 'rb').read()
+    with MarReader(open(TEST_MAR, 'rb')) as m:
+        m.mardata.signatures.sigs[0].algorithm_id = 2
+        with pytest.raises(ValueError, message='Unsupported algorithm'):
+            m.verify(pubkey)
 
 
 def test_extract(tmpdir):

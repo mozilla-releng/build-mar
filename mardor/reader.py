@@ -1,3 +1,9 @@
+'''MAR reading functionality
+
+This module provides the MarReader class which is used to read, extract, and
+verify MAR files.
+'''
+
 import os
 
 from cryptography.exceptions import InvalidSignature
@@ -9,13 +15,11 @@ from mardor.signing import calculate_signatures, make_verifier_v1
 
 
 class MarReader(object):
-    def __init__(self, fileobj, decompress='auto',
-                 verify_key=None):
+    def __init__(self, fileobj, decompress='auto'):
         assert decompress in ('auto', None)
         self.fileobj = fileobj
         self.mardata = mar.parse_stream(self.fileobj)
         self.decompress = decompress
-        self.verify_key = verify_key
 
     def close(self):
         self.fileobj.flush()
@@ -44,15 +48,11 @@ class MarReader(object):
             mkdir(entry_dir)
             self.extract_entry(e, entry_path)
 
-    def verify(self):
-        if not self.verify_key:
-            # TODO: Check if we actually have a signature field
-            return False
-
+    def verify(self, verify_key):
         verifiers = []
         for sig in self.mardata.signatures.sigs:
             if sig.algorithm_id == 1:
-                verifier = make_verifier_v1(self.verify_key, sig.signature)
+                verifier = make_verifier_v1(verify_key, sig.signature)
                 verifiers.append(verifier)
             else:
                 raise ValueError('Unsupported algorithm')

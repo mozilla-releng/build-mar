@@ -24,16 +24,18 @@ def test_takeexactly_notenough(data, n):
         b''.join(takeexactly(data, n))
 
 
-@given(st.lists(st.binary()))
-def test_bz2_streams(data):
-    stream = bz2_decompress_stream(bz2_compress_stream(data))
+@given(st.lists(st.binary()), st.integers(min_value=1, max_value=9))
+def test_bz2_streams(data, level):
+    stream = bz2_decompress_stream(bz2_compress_stream(data, level))
     assert b''.join(stream) == b''.join(data)
 
 
 def test_bz2_stream_large():
-    n = 1000000
+    # This is only to test the case where the compressor returns data before
+    # the stream ends
+    n = 70000
     stream = repeat(b'hello', n)
-    stream = bz2_decompress_stream(bz2_compress_stream(stream))
+    stream = bz2_decompress_stream(bz2_compress_stream(stream, level=1))
     assert b''.join(stream) == b'hello' * n
 
 

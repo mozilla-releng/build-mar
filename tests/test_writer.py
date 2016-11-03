@@ -46,8 +46,8 @@ def test_writer_adddir(tmpdir):
             assert len(m.mardata.index.entries) == 1
             assert m.mardata.index.entries[0].name == 'foo/message.txt'
             m.extract(str(tmpdir.join('extracted')))
-            assert (tmpdir.join('extracted', 'foo', 'message.txt').read('rb') ==
-                    b'hello world')
+            data = tmpdir.join('extracted', 'foo', 'message.txt').read('rb')
+            assert data == b'hello world'
 
 
 def test_writer_uncompressed(tmpdir):
@@ -95,6 +95,7 @@ def test_writer_compressed(tmpdir):
             assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
                     message_compressed)
 
+
 def test_additional(tmpdir):
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
@@ -132,7 +133,7 @@ def test_signing(tmpdir):
 
     assert mar_p.size() > 0
     with mar_p.open('rb') as f:
-        with MarReader(f, verify_key=public_key) as m:
+        with MarReader(f) as m:
             assert m.mardata.additional.count == 1
             assert m.mardata.signatures.count == 1
             assert len(m.mardata.index.entries) == 1
@@ -140,4 +141,4 @@ def test_signing(tmpdir):
             m.extract(str(tmpdir.join('extracted')))
             assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
                     b'hello world')
-            assert m.verify()
+            assert m.verify(public_key)

@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+'''structures for reading and writing MAR data.
+
+This relies on the construct module for specifying the data structures.
+
+See also https://wiki.mozilla.org/Software_Update:MAR
+'''
+
 from construct import (CString, Struct, Array, Bytes, Const, GreedyRange, If,
                        Int32ub, Int64ub, Pointer, this, Rebuild,
                        len_, Padding, Select)
@@ -46,7 +53,6 @@ index_entry = "index_entry" / Struct(
     "size" / Int32ub,
     "flags" / Int32ub,
     "name" / CString(encoding='ascii'),
-    # "data" / OnDemand(Pointer(this.offset, Bytes(this.size))),
 )
 
 index_header = "index_header" / Struct(
@@ -55,7 +61,20 @@ index_header = "index_header" / Struct(
 )
 
 
-def has_sigs(ctx):
+# Helper method to determine if a MAR file has signatures or not
+def _has_sigs(ctx):
+    '''Helper method to determine if a MAR file has a signature section or not.
+    It does this by looking at where file data starts in the file. If this
+    starts immediately after the headers (at offset 8), then it's an old style
+    MAR that has no signatures or addiontal information blocks.
+
+    Args:
+        ctx (context): construct parsing context
+
+    Returns:
+        True if the MAR file has a signature section
+        False otherwise
+    '''
     return min(e.offset for e in ctx.index.entries) > 8
 
 
@@ -71,6 +90,6 @@ mar = "mar" / Struct(
     # These sections will not be present for older MAR files
     # that don't have signature / extra sections
     # Only add them if the earliest entry offset is greater than 8
-    "signatures" / If(has_sigs, sigs_header),
-    "additional" / If(has_sigs, extras_header),
+    "signatures" / If(_has_sigs, sigs_header),
+    "additional" / If(_has_sigs, extras_header),
 )
