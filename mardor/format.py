@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-'''structures for reading and writing MAR data.
+"""structures for reading and writing MAR data.
 
 This relies on the construct module for specifying the data structures.
 
 See also https://wiki.mozilla.org/Software_Update:MAR
-'''
+"""
 
 from construct import (CString, Struct, Array, Bytes, Const, GreedyRange, If,
                        Int32ub, Int64ub, Pointer, this, Rebuild,
@@ -63,7 +63,8 @@ index_header = "index_header" / Struct(
 
 # Helper method to determine if a MAR file has signatures or not
 def _has_sigs(ctx):
-    '''Helper method to determine if a MAR file has a signature section or not.
+    """Helper method to determine if a MAR file has a signature section or not.
+
     It does this by looking at where file data starts in the file. If this
     starts immediately after the headers (at offset 8), then it's an old style
     MAR that has no signatures or addiontal information blocks.
@@ -74,7 +75,7 @@ def _has_sigs(ctx):
     Returns:
         True if the MAR file has a signature section
         False otherwise
-    '''
+    """
     return min(e.offset for e in ctx.index.entries) > 8
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+"""Utilities for reading/writing MAR files."""
 import os
 import bz2
 from functools import partial
@@ -6,8 +6,22 @@ from itertools import chain
 
 
 def mkdir(path):
+    """Make a directory and its parents.
+
+    Args:
+        path (str): path to create
+
+    Returns:
+        None
+
+    Raises:
+        OSError if the directory cannot be created.
+    """
     try:
         os.makedirs(path)
+        if not os.path.isdir(path):
+            raise OSError('{} is not a directory'.format(path))
+        assert os.path.isdir(path)
     except OSError as e:
         if e.errno == 17 and os.path.isdir(path):
             return
@@ -15,13 +29,20 @@ def mkdir(path):
 
 
 def file_iter(f):
+    """Yield blocks of data from file object `f`.
+
+    Args:
+        f (file-like object): file-like object that must suport .read(n)
+
+    Yields:
+        blocks of data from `f`
+    """
     for block in iter(partial(f.read, 1024**2), b''):
         yield block
 
 
 def takeexactly(iterable, size):
-    '''
-    Yields blocks from `iterable` until exactly len(size) have been returned.
+    """Yield blocks from `iterable` until exactly len(size) have been returned.
 
     Args:
         iterable (iterable): Any iterable that yields sliceable objects that
@@ -34,7 +55,7 @@ def takeexactly(iterable, size):
 
     Raises:
         ValueError if there is less than `size` data in `iterable`
-    '''
+    """
     total = 0
     for block in iterable:
         n = min(len(block), size - total)
@@ -51,6 +72,16 @@ def takeexactly(iterable, size):
 
 
 def file_writer(src, dst):
+    """Write data from `src` into `dst`.
+
+    Args:
+        src (iterable): iterable that yields blocks of data to write
+        dst (file-like object): file-like object that must support
+            .write(block)
+
+    Returns:
+        number of bytes written to `dst`
+    """
     n = 0
     for block in src:
         dst.write(block)
@@ -59,6 +90,15 @@ def file_writer(src, dst):
 
 
 def bz2_compress_stream(src, level=9):
+    """Compress data from `src`.
+
+    Args:
+        src (iterable): iterable that yields blocks of data to compress
+        level (int): compression level (1-9) default is 9
+
+    Yields:
+        blocks of compressed data
+    """
     compressor = bz2.BZ2Compressor(level)
     for block in src:
         encoded = compressor.compress(block)
@@ -68,6 +108,14 @@ def bz2_compress_stream(src, level=9):
 
 
 def bz2_decompress_stream(src):
+    """Decompress data from `src`.
+
+    Args:
+        src (iterable): iterable that yields blocks of compressed data
+
+    Yields:
+        blocks of uncompressed data
+    """
     dec = bz2.BZ2Decompressor()
     for block in src:
         decoded = dec.decompress(block)
@@ -76,6 +124,18 @@ def bz2_decompress_stream(src):
 
 
 def auto_decompress_stream(src):
+    """Decompress data from `src` if required.
+
+    If the first block of `src` appears to be compressed, then the entire
+    stream will be uncompressed. Otherwise the stream will be passed along
+    as-is.
+
+    Args:
+        src (iterable): iterable that yields blocks of data
+
+    Yields:
+        blocks of uncompressed data
+    """
     block = next(src)
     if block.startswith(b'BZh'):
         src = bz2_decompress_stream(chain([block], src))

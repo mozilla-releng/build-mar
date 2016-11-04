@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+"""Signing, verification and key support for MAR files."""
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives import hashes, serialization
@@ -10,6 +10,14 @@ from mardor.utils import file_iter
 
 
 def calculate_signatures(fileobj, filesize, hashers):
+    """Read data from MAR file that is required for generating signatures.
+
+    Args:
+        fileboj (file-like object): file-like object to read the MAR data from
+        filesize (int): the total size of the file
+        hashers (list): a list of hashing objects that will receive data via
+                        their .update() method.
+    """
     # Read everything except the signature entries
     # The first 8 bytes are covered, as is everything from the beginning
     # of the additional section to the end of the file. The signature
@@ -36,6 +44,15 @@ def calculate_signatures(fileobj, filesize, hashers):
 
 
 def make_verifier_v1(public_key, signature):
+    """Create verifier object to verify a `signature`.
+
+    Args:
+        public_key (str): PEM formatted public key
+        signature (bytes): signature to verify
+
+    Returns:
+        A cryptography key verifier object
+    """
     key = serialization.load_pem_public_key(
         public_key,
         backend=default_backend(),
@@ -49,6 +66,14 @@ def make_verifier_v1(public_key, signature):
 
 
 def make_signer_v1(private_key):
+    """Create a signer object that signs using `private_key`.
+
+    Args:
+        private_key (str): PEM formatted private key
+
+    Returns:
+        A cryptography key signer object
+    """
     key = serialization.load_pem_private_key(
         private_key,
         password=None,
@@ -62,6 +87,14 @@ def make_signer_v1(private_key):
 
 
 def make_rsa_keypair(bits=2048):
+    """Generate an RSA keypair.
+
+    Args:
+        bits (int): number of bits to use for the key. defaults to 2048.
+
+    Returns:
+        (private_key, public_key) - both as PEM encoded strings
+    """
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=bits,
