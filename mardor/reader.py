@@ -14,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
                           write_to_file, mkdir)
 from mardor.format import mar
-from mardor.signing import calculate_signatures, make_verifier_v1
+from mardor.signing import get_signature_data, make_verifier_v1
 
 
 class MarReader(object):
@@ -25,7 +25,7 @@ class MarReader(object):
             m.extract('/tmp/extracted')
     """
 
-    def __init__(self, fileobj, decompress='auto'):
+    def __init__(self, fileobj):
         """Initialize a new MarReader object.
 
         Note:
@@ -35,14 +35,9 @@ class MarReader(object):
             fileobj (file object): A file-like object open in read mode where
                 the MAR data will be read from. This object must also be
                 seekable (i.e.  support .seek() and .tell()).
-            decompress (obj, optional): Controls whether files are decompressed
-                when extracted. Must be one of 'auto' or None. Defaults to
-                'auto'.
         """
-        assert decompress in ('auto', None)
         self.fileobj = fileobj
         self.mardata = mar.parse_stream(self.fileobj)
-        self.decompress = decompress
 
     def __enter__(self):
         """Support the context manager protocol."""
@@ -52,29 +47,38 @@ class MarReader(object):
         """Support the context manager protocol."""
         pass
 
-    def extract_entry(self, e, path):
-        """Extract entry from this MAR file onto disk.
+    def extract_entry(self, e, decompress='auto'):
+        """Yield blocks of data for this entry from this MAR file.
 
         Args:
             e (:obj:`mardor.format.index_entry`): An index_entry object that
                 refers to this file's size and offset inside the MAR file.
             path (str): Where on disk to extract this file to.
-        """
-        with open(path, 'wb') as f:
-            self.fileobj.seek(e.offset)
-            stream = file_iter(self.fileobj)
-            stream = takeexactly(stream, e.size)
-            if self.decompress == 'auto':
-                stream = auto_decompress_stream(stream)
-            write_to_file(stream, f)
+            decompress (obj, optional): Controls whether files are decompressed
+                when extracted. Must be one of 'auto' or None. Defaults to
+                'auto'.
 
-    def extract(self, destdir):
+        Yields:
+            Blocks of data for `e`
+        """
+        self.fileobj.seek(e.offset)
+        stream = file_iter(self.fileobj)
+        stream = takeexactly(stream, e.size)
+        if decompress == 'auto':
+            stream = auto_decompress_stream(stream)
+        for block in stream:
+            yield block
+
+    def extract(self, destdir, decompress='auto'):
         """Extract the entire MAR file into a directory.
 
         Args:
             destdir (str): A local directory on disk into which the contents of
                 this MAR file will be extracted. Required parent directories
                 will be created as necessary.
+            decompress (obj, optional): Controls whether files are decompressed
+                when extracted. Must be one of 'auto' or None. Defaults to
+                'auto'.
         """
         for e in self.mardata.index.entries:
             name = e.name
@@ -83,7 +87,8 @@ class MarReader(object):
             entry_path = os.path.join(destdir, name)
             entry_dir = os.path.dirname(entry_path)
             mkdir(entry_dir)
-            self.extract_entry(e, entry_path)
+            with open(entry_path, 'wb') as f:
+                write_to_file(self.extract_entry(e, decompress), f)
 
     def verify(self, verify_key):
         """Verify that this MAR file has a valid signature.
@@ -107,8 +112,10 @@ class MarReader(object):
             else:
                 raise ValueError('Unsupported algorithm')
 
-        calculate_signatures(self.fileobj, self.mardata.signatures.filesize,
-                             verifiers)
+        for block in get_signature_data(self.fileobj,
+                                        self.mardata.signatures.filesize):
+            [v.update(block) for v in verifiers]
+
         for v in verifiers:
             try:
                 v.verify()

@@ -7,7 +7,6 @@ import bz2
 import pytest
 
 from mardor.reader import MarReader
-from mardor.writer import MarWriter
 from mardor.signing import make_rsa_keypair
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
@@ -36,17 +35,9 @@ def test_verify():
         assert m.verify(pubkey)
 
 
-def test_verify_nosig(tmpdir):
-    message_p = tmpdir.join('message.txt')
-    message_p.write('hello world')
-    mar_p = tmpdir.join('test.mar')
-    with mar_p.open('wb') as f:
-        with MarWriter(f) as m:
-            with tmpdir.as_cwd():
-                m.add('message.txt')
-
+def test_verify_nosig(mar_cu):
     pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(mar_p.open('rb')) as m:
+    with MarReader(mar_cu.open('rb')) as m:
         assert not m.verify(pubkey)
 
 
@@ -80,8 +71,8 @@ def test_extract(tmpdir):
 
 
 def test_extract_nodecompress(tmpdir):
-    with MarReader(open(TEST_MAR, 'rb'), decompress=None) as m:
-        m.extract(str(tmpdir))
+    with MarReader(open(TEST_MAR, 'rb')) as m:
+        m.extract(str(tmpdir), decompress=None)
         assert sorted(tmpdir.listdir()) == [
             tmpdir.join(f) for f in [
                 'Contents',

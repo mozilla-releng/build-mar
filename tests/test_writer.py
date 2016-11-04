@@ -58,9 +58,9 @@ def test_writer_uncompressed(tmpdir):
     message_p.write('hello world')
     mar_p = tmpdir.join('test.mar')
     with mar_p.open('wb') as f:
-        with MarWriter(f, compress=None) as m:
+        with MarWriter(f) as m:
             with tmpdir.as_cwd():
-                m.add('message.txt')
+                m.add('message.txt', compress=None)
 
     assert mar_p.size() > 0
 
@@ -89,12 +89,12 @@ def test_writer_compressed(tmpdir):
     message_compressed = bz2.compress(b'hello world')
 
     with mar_p.open('rb') as f:
-        with MarReader(f, decompress=None) as m:
+        with MarReader(f) as m:
             assert m.mardata.additional is None
             assert m.mardata.signatures is None
             assert len(m.mardata.index.entries) == 1
             assert m.mardata.index.entries[0].name == 'message.txt'
-            m.extract(str(tmpdir.join('extracted')))
+            m.extract(str(tmpdir.join('extracted')), decompress=None)
             assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
                     message_compressed)
 

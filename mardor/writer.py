@@ -9,7 +9,7 @@ import os
 
 from mardor.utils import bz2_compress_stream, write_to_file
 from mardor.format import mar_header, sigs_header, extras_header, index_header
-from mardor.signing import make_signer_v1, calculate_signatures
+from mardor.signing import make_signer_v1, get_signature_data
 
 
 class MarWriter(object):
@@ -20,7 +20,7 @@ class MarWriter(object):
             m.add('/tmp/data')
     """
 
-    def __init__(self, fileobj, compress='bz2',
+    def __init__(self, fileobj,
                  productversion=None, channel=None,
                  signing_key=None,
                  ):
@@ -34,8 +34,6 @@ class MarWriter(object):
                 (e.g. 'w+b' mode) where the MAR data will be written to. This
                 object must also be seekable (i.e.  support .seek() and
                 .tell()).
-            compress (str): 'bz2' or None to indicate if the contents should be
-                compressed or not.
             productversion (str): product version string to encode in the MAR
                 header
             channel (str): channel name to encode in the MAR header
@@ -48,7 +46,6 @@ class MarWriter(object):
         self.additional_offset = None
         self.last_offset = 8
         self.filesize = 0
-        self.compress = compress
         if productversion or channel:
             assert productversion and channel
         self.productversion = productversion
@@ -92,7 +89,7 @@ class MarWriter(object):
         self.finish()
         self.flush()
 
-    def add(self, path):
+    def add(self, path, compress='bz2'):
         """Add `path` to the MAR file.
 
         If `path` is a file, it will be added directly.
@@ -102,36 +99,42 @@ class MarWriter(object):
         Args:
             path (str): path to file or directory on disk to add to this MAR
                 file
+            compress (str): either 'bz2' or None to indicate if content should
+                be compressed. defaults to 'bz2'
         """
         if os.path.isdir(path):
-            self.add_dir(path)
+            self.add_dir(path, compress)
         else:
-            self.add_file(path)
+            self.add_file(path, compress)
 
-    def add_dir(self, path):
+    def add_dir(self, path, compress):
         """Add all files under directory `path` to the MAR file.
 
         Args:
             path (str): path to directory to add to this MAR file
+            compress (str): either 'bz2' or None to indicate if content should
+                be compressed. defaults to 'bz2'
         """
         assert os.path.isdir(path)
         for root, dirs, files in os.walk(path):
             for f in files:
-                self.add_file(os.path.join(root, f))
+                self.add_file(os.path.join(root, f), compress)
 
-    def add_file(self, path):
+    def add_file(self, path, compress):
         """Add a single file to the MAR file.
 
         The file data will be compressed as per our self.compress setting.
 
         Args:
             path (str): path to a file to add to this MAR file.
+            compress (str): either 'bz2' or None to indicate if content should
+                be compressed. defaults to 'bz2'
         """
         assert os.path.isfile(path)
         self.fileobj.seek(self.last_offset)
 
         with open(path, 'rb') as f:
-            if self.compress == 'bz2':
+            if compress == 'bz2':
                 f = bz2_compress_stream(f)
             size = write_to_file(f, self.fileobj)
 
@@ -188,7 +191,8 @@ class MarWriter(object):
             A list of signature tuples: [(algorithm_id, signature_data), ...]
         """
         signers = self.get_signers()
-        calculate_signatures(self.fileobj, self.filesize, signers)
+        for block in get_signature_data(self.fileobj, self.filesize):
+            [sig.update(block) for sig in signers]
 
         # NB: This only supports 1 signature of type 1 right now
         signatures = [(1, sig.finalize()) for sig in signers]

@@ -12,14 +12,16 @@ from mardor.format import sigs_header
 from mardor.utils import file_iter
 
 
-def calculate_signatures(fileobj, filesize, hashers):
-    """Read data from MAR file that is required for generating signatures.
+def get_signature_data(fileobj, filesize):
+    """Read data from MAR file that is required for MAR signatures.
 
     Args:
         fileboj (file-like object): file-like object to read the MAR data from
         filesize (int): the total size of the file
-        hashers (list): a list of hashing objects that will receive data via
-                        their .update() method.
+
+    Yields:
+        blocks of bytes representing the data required to generate or validate
+        signatures.
     """
     # Read everything except the signature entries
     # The first 8 bytes are covered, as is everything from the beginning
@@ -29,21 +31,21 @@ def calculate_signatures(fileobj, filesize, hashers):
     # MAR header
     fileobj.seek(0)
     block = fileobj.read(8)
-    [h.update(block) for h in hashers]
+    yield block
 
     # Signatures header
     sigs = sigs_header.parse_stream(fileobj)
     block = Int64ub.build(filesize) + Int32ub.build(sigs.count)
-    [h.update(block) for h in hashers]
+    yield block
 
     # Signature algorithm id and size per entry
     for sig in sigs.sigs:
         block = Int32ub.build(sig.algorithm_id) + Int32ub.build(sig.size)
-        [h.update(block) for h in hashers]
+        yield block
 
     # Everything else in the file is covered
     for block in file_iter(fileobj):
-        [h.update(block) for h in hashers]
+        yield block
 
 
 def make_verifier_v1(public_key, signature):
