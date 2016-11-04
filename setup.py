@@ -1,5 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from setuptools import setup, find_packages
-
 
 setup(
     name="mar",
@@ -12,5 +14,5 @@ setup(
     description="MAR (Mozilla ARchive) Python implementation",
     install_requires=open('requirements.txt').readlines(),
     long_description=open('README.md').read(),
-    scripts=["scripts/mar.py"],
+    scripts=["scripts/mar"],
 )
