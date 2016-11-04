@@ -8,7 +8,8 @@ Utility for managing mar files"""
 
 import os
 
-from mardor.marfile import MarFile, BZ2MarFile
+from mardor.reader import MarReader
+from mardor.writer import MarWriter
 
 import logging
 log = logging.getLogger(__name__)
@@ -58,11 +59,6 @@ def main():
     marfile, files = args[0], args[1:]
     marfile = os.path.abspath(marfile)
 
-    if options.bz2:
-        mar_class = BZ2MarFile
-    else:
-        mar_class = MarFile
-
     signatures = []
     if options.keyfile:
         signatures.append((1, options.keyfile))
@@ -72,23 +68,30 @@ def main():
         os.chdir(options.chdir)
 
     if options.action == "extract":
-        with mar_class(marfile) as m:
-            m.extractall()
+        with open(marfile, 'rb') as f:
+            decompress = 'bz2' if options.bz2 else None
+            with MarReader(f, decompress=decompress) as m:
+                m.extract(os.getcwd())
 
     elif options.action == "list":
-        with mar_class(marfile, signature_versions=signatures) as m:
-            if options.verify:
-                m.verify_signatures()
-            log.info("%-7s %-7s %-7s", "SIZE", "MODE", "NAME")
-            for m in m.members:
-                log.info("%-7i %04o    %s", m.size, m.flags, m.name)
+        with open(marfile, 'rb') as f:
+            with MarReader(f) as m:
+                if options.verify:
+                    key = open(options.keyfile).read()
+                    m.verify(key)
+                print("{:7s} {:7s} {:7s}".format("SIZE", "MODE", "NAME"))
+                for e in m.mardata.index.entries:
+                    print("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
 
     elif options.action == "create":
         if not files:
             parser.error("Must specify at least one file to add to marfile")
-        with mar_class(marfile, "w", signature_versions=signatures) as m:
-            for f in files:
-                m.add(f)
+        with open(marfile, 'w+b') as f:
+            compress = 'bz2' if options.bz2 else None
+            # TODO: extra info, signature
+            with MarWriter(f, compress=compress) as m:
+                for f in files:
+                    m.add(f)
 
 if __name__ == "__main__":
     main()
