@@ -12,7 +12,7 @@ import os
 from cryptography.exceptions import InvalidSignature
 
 from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
-                          file_writer, mkdir)
+                          write_to_file, mkdir)
 from mardor.format import mar
 from mardor.signing import calculate_signatures, make_verifier_v1
 
@@ -66,7 +66,7 @@ class MarReader(object):
             stream = takeexactly(stream, e.size)
             if self.decompress == 'auto':
                 stream = auto_decompress_stream(stream)
-            file_writer(stream, f)
+            write_to_file(stream, f)
 
     def extract(self, destdir):
         """Extract the entire MAR file into a directory.

@@ -72,7 +72,7 @@ def takeexactly(iterable, size):
     assert total == size
 
 
-def file_writer(src, dst):
+def write_to_file(src, dst):
     """Write data from `src` into `dst`.
 
     Args:

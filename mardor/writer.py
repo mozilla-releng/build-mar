@@ -7,7 +7,7 @@ This module provides the MarWriter class which is used to write MAR files.
 """
 import os
 
-from mardor.utils import bz2_compress_stream, file_writer
+from mardor.utils import bz2_compress_stream, write_to_file
 from mardor.format import mar_header, sigs_header, extras_header, index_header
 from mardor.signing import make_signer_v1, calculate_signatures
 
@@ -133,7 +133,7 @@ class MarWriter(object):
         with open(path, 'rb') as f:
             if self.compress == 'bz2':
                 f = bz2_compress_stream(f)
-            size = file_writer(f, self.fileobj)
+            size = write_to_file(f, self.fileobj)
 
         e = dict(
             name=path,
