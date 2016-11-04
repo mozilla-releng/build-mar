@@ -19,8 +19,6 @@ def mkdir(path):
     """
     try:
         os.makedirs(path)
-        if not os.path.isdir(path):
-            raise OSError('{} is not a directory'.format(path))
         assert os.path.isdir(path)
     except OSError as e:
         if e.errno == 17 and os.path.isdir(path):
