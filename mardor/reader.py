@@ -49,6 +49,10 @@ class MarReader(object):
             self.extract_entry(e, entry_path)
 
     def verify(self, verify_key):
+        if not self.mardata.signatures:
+            # This MAR file can't be verified since it has no signatures
+            return False
+
         verifiers = []
         for sig in self.mardata.signatures.sigs:
             if sig.algorithm_id == 1:
