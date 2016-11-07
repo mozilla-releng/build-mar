@@ -8,7 +8,7 @@ function get_key() {
     name=$2
     url="$BASEURL/$filename"
     echo "# From $url"
-    echo -n "$name = \"\"\""
+    echo -n "$name = b\"\"\""
     curl -s $url | openssl x509 -inform DER -pubkey -noout | head -c -1
     echo '"""'
     echo

@@ -12,7 +12,7 @@ import os
 from cryptography.exceptions import InvalidSignature
 
 from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
-                          write_to_file, mkdir)
+                          write_to_file, mkdir, safejoin)
 from mardor.format import mar
 from mardor.signing import get_signature_data, make_verifier_v1
 
@@ -82,9 +82,8 @@ class MarReader(object):
         """
         for e in self.mardata.index.entries:
             name = e.name
-            # TODO: Sanity check these
-            # TODO: Assert that it doesn't contain . or .. anywhere
-            entry_path = os.path.join(destdir, name)
+            entry_path = safejoin(destdir, name)
+            print('extracting to', entry_path)
             entry_dir = os.path.dirname(entry_path)
             mkdir(entry_dir)
             with open(entry_path, 'wb') as f:

@@ -85,3 +85,12 @@ def test_extract_nodecompress(tmpdir):
         assert contents.startswith(b'BZh')
         assert (bz2.decompress(contents) ==
                 b'pref("app.update.channel", "release");\n')
+
+
+def test_extract_badpath(tmpdir):
+    with MarReader(open(TEST_MAR, 'rb')) as m:
+        # Mess with the name
+        e = m.mardata.index.entries[0]
+        e.name = "../" + e.name
+        with pytest.raises(ValueError):
+            m.extract(str(tmpdir))

@@ -145,3 +145,25 @@ def auto_decompress_stream(src):
 
     for block in src:
         yield block
+
+
+def safejoin(base, *elements):
+    """Safely joins paths together.
+
+    The result will always be a subdirectory under `base`, otherwise ValueError
+    is raised.
+
+    Args:
+        base (str): base path
+        elements (list of strings): path elements to join to base
+
+    Returns:
+        elements joined to base
+    """
+    # TODO: do we really want to be absolute here?
+    base = os.path.abspath(base)
+    path = os.path.join(base, *elements)
+    path = os.path.normpath(path)
+    if not path.startswith(base):
+        raise ValueError('result is outside of base')
+    return path
