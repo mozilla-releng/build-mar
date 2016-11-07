@@ -79,6 +79,13 @@ def main():
                 if options.verify:
                     key = open(options.keyfile).read()
                     m.verify(key)
+                if m.mardata.additional:
+                    for s in m.mardata.additional.sections:
+                        if s.id == 1:
+                            print("Product version: {}".format(s.productversion))
+                            print("Channel: {}".format(s.channel))
+                        else:
+                            print(s)
                 print("{:7s} {:7s} {:7s}".format("SIZE", "MODE", "NAME"))
                 for e in m.mardata.index.entries:
                     print("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
