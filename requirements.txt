@@ -1,2 +1,2 @@
-cryptography
-construct
+cryptography==1.5.2
+construct==2.8.8
