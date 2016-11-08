@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mar",
-    version="1.4pre",
+    version="2.0pre",
     author="Chris AtLee",
     author_email="catlee@mozilla.com",
     packages=find_packages(),
