@@ -113,17 +113,40 @@ class MarWriter(object):
         Args:
             path (str): path to directory to add to this MAR file
             compress (str): either 'bz2' or None to indicate if content should
-                be compressed. defaults to 'bz2'
+                be compressed.
         """
         assert os.path.isdir(path)
         for root, dirs, files in os.walk(path):
             for f in files:
                 self.add_file(os.path.join(root, f), compress)
 
+    def add_fileobj(self, fileobj, path, compress):
+        """Add the contents of a file object to the MAR file.
+
+        Args:
+            fileobj (file-like object): open file object data will be read from
+            path (str): name of this file in the MAR file
+            compress (str): either 'bz2' or None to indicate if content should
+                be compressed.
+        """
+        self.fileobj.seek(self.last_offset)
+
+        f = fileobj
+        if compress == 'bz2':
+            f = bz2_compress_stream(f)
+        size = write_to_file(f, self.fileobj)
+
+        e = dict(
+            name=path,
+            offset=self.last_offset,
+            size=size,
+            flags=os.stat(path).st_mode & 0o777,
+        )
+        self.entries.append(e)
+        self.last_offset += e['size']
+
     def add_file(self, path, compress):
         """Add a single file to the MAR file.
-
-        The file data will be compressed as per our self.compress setting.
 
         Args:
             path (str): path to a file to add to this MAR file.
@@ -134,18 +157,7 @@ class MarWriter(object):
         self.fileobj.seek(self.last_offset)
 
         with open(path, 'rb') as f:
-            if compress == 'bz2':
-                f = bz2_compress_stream(f)
-            size = write_to_file(f, self.fileobj)
-
-        e = dict(
-            name=path,
-            offset=self.last_offset,
-            size=size,
-            flags=os.stat(path).st_mode & 0o777,
-        )
-        self.entries.append(e)
-        self.last_offset += e['size']
+            self.add_fileobj(f, path, compress)
 
     def write_header(self):
         """Write the MAR header to the file.
