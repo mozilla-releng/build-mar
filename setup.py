@@ -12,7 +12,11 @@ setup(
     url="https://github.com/mozilla/build-mar",
     license="MPL 2.0",
     description="MAR (Mozilla ARchive) Python implementation",
-    install_requires=open('requirements.txt').readlines(),
+    install_requires=['cryptography', 'construct'],
     long_description=open('README.md').read(),
-    scripts=["scripts/mar"],
+    entry_points={
+        'console_scripts': [
+            'mar = mardor.cli.main',
+        ],
+    },
 )
