@@ -46,8 +46,9 @@ class MarWriter(object):
         self.additional_offset = None
         self.last_offset = 8
         self.filesize = 0
-        if productversion or channel:
-            assert productversion and channel
+        if (productversion or channel) and not (productversion and channel):
+            raise ValueError('productversion and channel must be specified'
+                             ' together')
         self.productversion = productversion
         self.channel = channel
         self.signing_key = signing_key
@@ -115,7 +116,8 @@ class MarWriter(object):
             compress (str): either 'bz2' or None to indicate if content should
                 be compressed.
         """
-        assert os.path.isdir(path)
+        if not os.path.isdir(path):
+            raise ValueError('path is not a directory')
         for root, dirs, files in os.walk(path):
             for f in files:
                 self.add_file(os.path.join(root, f), compress)
@@ -153,7 +155,8 @@ class MarWriter(object):
             compress (str): either 'bz2' or None to indicate if content should
                 be compressed. defaults to 'bz2'
         """
-        assert os.path.isfile(path)
+        if not os.path.isfile(path):
+            raise ValueError('path is not a file')
         self.fileobj.seek(self.last_offset)
 
         with open(path, 'rb') as f:
@@ -231,7 +234,8 @@ class MarWriter(object):
         self.fileobj.write(sigs)
         signatures_len = len(sigs)
         self.additional_offset = self.signature_offset + signatures_len
-        assert self.additional_offset == self.fileobj.tell()
+        if not self.additional_offset == self.fileobj.tell():
+            raise IOError('ended up at unexpected offset')
 
     def write_additional(self, productversion, channel):
         """Write the additional information to the MAR header.

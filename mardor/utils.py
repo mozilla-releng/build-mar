@@ -22,7 +22,8 @@ def mkdir(path):
     """
     try:
         os.makedirs(path)
-        assert os.path.isdir(path)
+        if not os.path.isdir(path):
+            raise IOError('path is not a directory')
     except OSError as e:
         if e.errno == 17 and os.path.isdir(path):
             return
@@ -69,7 +70,8 @@ def takeexactly(iterable, size):
     if total < size:
         raise ValueError('not enough data (yielded {} of {})')
 
-    assert total == size
+    if total != size:
+        raise ValueError('yielded too much data')
 
 
 def write_to_file(src, dst):
