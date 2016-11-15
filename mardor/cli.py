@@ -10,6 +10,7 @@ from argparse import ArgumentParser, REMAINDER
 
 from mardor.reader import MarReader
 from mardor.writer import MarWriter
+import mardor.mozilla
 
 import logging
 log = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ def build_argparser():
                         dest="action", help="create MAR")
     parser.add_argument("-j", "--bzip2", action="store_true", dest="bz2",
                         help="compress/decompress members with BZ2")
-    parser.add_argument("-k", "--keyfile", dest="keyfile",
-                        help="sign/verify with given key")
+    parser.add_argument("-k", "--keyfiles", dest="keyfiles", action='append',
+                        help="sign/verify with given key(s)")
     parser.add_argument("-v", "--verify", dest="verify", action="store_true",
                         help="verify the marfile", default=False)
     parser.add_argument("-C", "--chdir", dest="chdir",
@@ -50,12 +51,31 @@ def do_extract(marfile, decompress, destdir):
             m.extract(destdir)
 
 
-def do_verify(marfile, keyfile):
+def do_verify(marfile, keyfiles):
     """Verify the MAR file."""
+    keys = []
+    for keyfile in keyfiles:
+        if keyfile.startswith(':mozilla-'):
+            name = keyfile.split(':mozilla-')[1]
+            if name == 'release':
+                keys.append(mardor.mozilla.release1)
+                keys.append(mardor.mozilla.release2)
+            elif name == 'nightly':
+                keys.append(mardor.mozilla.nightly1)
+                keys.append(mardor.mozilla.nightly2)
+            elif name == 'dep':
+                keys.append(mardor.mozilla.dep1)
+                keys.append(mardor.mozilla.dep2)
+            else:
+                raise ValueError('Invalid internal key name: {}'
+                                 .format(keyfile))
+        else:
+            key = open(keyfile, 'rb').read()
+            keys.append(key)
+
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
-            key = open(keyfile, 'rb').read()
-            return m.verify(key)
+            return any(m.verify(key) for key in keys)
 
 
 def do_list(marfile):
@@ -84,7 +104,7 @@ def do_create(marfile, files, compress):
                 m.add(f)
 
 
-def main(argv):
+def main(argv=None):
     """Main CLI entry point."""
     parser = build_argparser()
 
@@ -98,7 +118,7 @@ def main(argv):
     if args.action == 'create' and not args.files:
         parser.error("Must specify at least one file to add to marfile")
 
-    if args.verify and not args.keyfile:
+    if args.verify and not args.keyfiles:
         parser.error("Must specify a key file when verifying")
 
     marfile = os.path.abspath(args.marfile)
@@ -114,7 +134,7 @@ def main(argv):
 
     elif args.action == "list":
         if args.verify:
-            if do_verify(marfile, args.keyfile):
+            if do_verify(marfile, args.keyfiles):
                 print("Verification OK")
             else:
                 print("Verification failed")
