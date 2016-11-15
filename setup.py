@@ -16,7 +16,7 @@ setup(
     long_description=open('README.md').read(),
     entry_points={
         'console_scripts': [
-            'mar = mardor.cli.main',
+            'mar = mardor.cli:main',
         ],
     },
 )
