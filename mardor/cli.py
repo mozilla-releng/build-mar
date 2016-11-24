@@ -44,11 +44,11 @@ def build_argparser():
     return parser
 
 
-def do_extract(marfile, decompress, destdir):
+def do_extract(marfile, destdir, decompress):
     """Extract the MAR file to the destdir."""
     with open(marfile, 'rb') as f:
-        with MarReader(f, decompress=decompress) as m:
-            m.extract(destdir)
+        with MarReader(f) as m:
+            m.extract(str(destdir), decompress=decompress)
 
 
 def do_verify(marfile, keyfiles):
@@ -96,12 +96,12 @@ def do_list(marfile):
 
 
 def do_create(marfile, files, compress):
-    """Create anew MAR file."""
+    """Create a new MAR file."""
     with open(marfile, 'w+b') as f:
         # TODO: extra info, signature
-        with MarWriter(f, compress=compress) as m:
+        with MarWriter(f) as m:
             for f in files:
-                m.add(f)
+                m.add(f, compress=compress)
 
 
 def main(argv=None):
@@ -130,7 +130,7 @@ def main(argv=None):
 
     if args.action == "extract":
         decompress = 'bz2' if args.bz2 else None
-        do_extract(marfile, decompress, os.getcwd())
+        do_extract(marfile, os.getcwd(), decompress)
 
     elif args.action == "list":
         if args.verify:

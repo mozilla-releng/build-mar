@@ -9,12 +9,28 @@ verify MAR files.
 
 import os
 
+from enum import Enum
+
 from cryptography.exceptions import InvalidSignature
 
 from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
                           write_to_file, mkdir, safejoin)
 from mardor.format import mar
 from mardor.signing import get_signature_data, make_verifier_v1
+
+
+class Decompression(Enum):
+    """
+    Enum representing different decompression options.
+
+    none: don't decompress
+    auto: automatically decompress depending on specific format
+    bz2: decompress using bz2
+    """
+
+    none = None
+    auto = 1
+    bz2 = 2
 
 
 class MarReader(object):
@@ -47,7 +63,7 @@ class MarReader(object):
         """Support the context manager protocol."""
         pass
 
-    def extract_entry(self, e, decompress='auto'):
+    def extract_entry(self, e, decompress=Decompression.auto):
         """Yield blocks of data for this entry from this MAR file.
 
         Args:
@@ -55,8 +71,8 @@ class MarReader(object):
                 refers to this file's size and offset inside the MAR file.
             path (str): Where on disk to extract this file to.
             decompress (obj, optional): Controls whether files are decompressed
-                when extracted. Must be one of 'auto' or None. Defaults to
-                'auto'.
+                when extracted. Must be an instance of Decompression. defaults
+                to Decompression.auto
 
         Yields:
             Blocks of data for `e`
@@ -64,12 +80,12 @@ class MarReader(object):
         self.fileobj.seek(e.offset)
         stream = file_iter(self.fileobj)
         stream = takeexactly(stream, e.size)
-        if decompress == 'auto':
+        if decompress == Decompression.auto:
             stream = auto_decompress_stream(stream)
         for block in stream:
             yield block
 
-    def extract(self, destdir, decompress='auto'):
+    def extract(self, destdir, decompress=Decompression.auto):
         """Extract the entire MAR file into a directory.
 
         Args:
@@ -83,7 +99,6 @@ class MarReader(object):
         for e in self.mardata.index.entries:
             name = e.name
             entry_path = safejoin(destdir, name)
-            print('extracting to', entry_path)
             entry_dir = os.path.dirname(entry_path)
             mkdir(entry_dir)
             with open(entry_path, 'wb') as f:

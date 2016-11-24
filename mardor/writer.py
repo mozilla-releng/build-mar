@@ -12,6 +12,21 @@ from mardor.format import mar_header, sigs_header, extras_header, index_header
 from mardor.signing import make_signer_v1, get_signature_data
 
 
+from enum import Enum
+
+
+class Compression(Enum):
+    """
+    Enum representing types of compression we can do.
+
+    none: no compression
+    bz2: bz2 compression
+    """
+
+    none = 0
+    bz2 = 1
+
+
 class MarWriter(object):
     """Class for writing MAR files.
 
@@ -90,7 +105,7 @@ class MarWriter(object):
         self.finish()
         self.flush()
 
-    def add(self, path, compress='bz2'):
+    def add(self, path, compress=Compression.bz2):
         """Add `path` to the MAR file.
 
         If `path` is a file, it will be added directly.
@@ -100,8 +115,8 @@ class MarWriter(object):
         Args:
             path (str): path to file or directory on disk to add to this MAR
                 file
-            compress (str): either 'bz2' or None to indicate if content should
-                be compressed. defaults to 'bz2'
+            compress (obj): instance of Compression. defaults to
+                            Compression.bz2.
         """
         if os.path.isdir(path):
             self.add_dir(path, compress)
@@ -113,8 +128,8 @@ class MarWriter(object):
 
         Args:
             path (str): path to directory to add to this MAR file
-            compress (str): either 'bz2' or None to indicate if content should
-                be compressed.
+            compress (obj): instance of Compression. defaults to
+                            Compression.bz2.
         """
         if not os.path.isdir(path):
             raise ValueError('path is not a directory')
@@ -128,13 +143,13 @@ class MarWriter(object):
         Args:
             fileobj (file-like object): open file object data will be read from
             path (str): name of this file in the MAR file
-            compress (str): either 'bz2' or None to indicate if content should
-                be compressed.
+            compress (obj): instance of Compression. defaults to
+                            Compression.bz2.
         """
         self.fileobj.seek(self.last_offset)
 
         f = fileobj
-        if compress == 'bz2':
+        if compress == Compression.bz2:
             f = bz2_compress_stream(f)
         size = write_to_file(f, self.fileobj)
 
@@ -152,8 +167,8 @@ class MarWriter(object):
 
         Args:
             path (str): path to a file to add to this MAR file.
-            compress (str): either 'bz2' or None to indicate if content should
-                be compressed. defaults to 'bz2'
+            compress (obj): instance of Compression. defaults to
+                            Compression.bz2.
         """
         if not os.path.isfile(path):
             raise ValueError('path is not a file')
