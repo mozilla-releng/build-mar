@@ -79,20 +79,23 @@ def do_verify(marfile, keyfiles):
 
 
 def do_list(marfile):
-    """List the MAR file."""
-    # TODO: keep the prints?
+    """
+    List the MAR file.
+
+    Yields lines of text to output
+    """
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
             if m.mardata.additional:
                 for s in m.mardata.additional.sections:
                     if s.id == 1:
-                        print("Product version: {}".format(s.productversion))
-                        print("Channel: {}".format(s.channel))
+                        yield ("Product version: {}".format(s.productversion))
+                        yield ("Channel: {}".format(s.channel))
                     else:
-                        print(s)
-            print("{:7s} {:7s} {:7s}".format("SIZE", "MODE", "NAME"))
+                        yield ("Unknown additional data")
+            yield ("{:7s} {:7s} {:7s}".format("SIZE", "MODE", "NAME"))
             for e in m.mardata.index.entries:
-                print("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
+                yield ("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
 
 
 def do_create(marfile, files, compress):
@@ -129,7 +132,7 @@ def main(argv=None):
         os.chdir(args.chdir)
 
     if args.action == "extract":
-        decompress = 'bz2' if args.bz2 else None
+        decompress = mardor.reader.Decompression.bz2 if args.bz2 else None
         do_extract(marfile, os.getcwd(), decompress)
 
     elif args.action == "list":
@@ -140,8 +143,8 @@ def main(argv=None):
                 print("Verification failed")
                 sys.exit(1)
 
-        do_list(marfile)
+        print("\n".join(do_list(marfile)))
 
     elif args.action == "create":
-        compress = 'bz2' if args.bz2 else None
+        compress = mardor.writer.Compression.bz2 if args.bz2 else None
         do_create(marfile, args.files, compress)

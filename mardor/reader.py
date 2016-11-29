@@ -14,7 +14,8 @@ from enum import Enum
 from cryptography.exceptions import InvalidSignature
 
 from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
-                          write_to_file, mkdir, safejoin)
+                          bz2_decompress_stream, write_to_file, mkdir,
+                          safejoin)
 from mardor.format import mar
 from mardor.signing import get_signature_data, make_verifier_v1
 
@@ -82,6 +83,9 @@ class MarReader(object):
         stream = takeexactly(stream, e.size)
         if decompress == Decompression.auto:
             stream = auto_decompress_stream(stream)
+        elif decompress == Decompression.bz2:
+            stream = bz2_decompress_stream(stream)
+
         for block in stream:
             yield block
 
