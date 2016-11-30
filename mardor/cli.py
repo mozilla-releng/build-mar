@@ -148,3 +148,6 @@ def main(argv=None):
     elif args.action == "create":
         compress = mardor.writer.Compression.bz2 if args.bz2 else None
         do_create(marfile, args.files, compress)
+
+    else:
+        parser.error("Unsupported action {}".format(args.action))

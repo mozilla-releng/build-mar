@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
 from mardor import cli
-from mardor.reader import Decompression
+from mardor.reader import Decompression, MarReader
 from mardor import mozilla
 
 from pytest import fixture, raises
@@ -113,3 +113,13 @@ def test_main_create(tmpdir):
     tmpdir.join('hello.txt').write('hello world')
     with tmpdir.as_cwd():
         cli.main(['-c', 'test.mar', 'hello.txt'])
+
+
+def test_main_create_chdir(tmpdir):
+    tmpdir.join('hello.txt').write('hello world')
+    tmpmar = tmpdir.join('test.mar')
+    cli.main(['-C', str(tmpdir), '-c', str(tmpmar), 'hello.txt'])
+
+    with MarReader(tmpmar.open('rb')) as m:
+        assert len(m.mardata.index.entries) == 1
+        assert m.mardata.index.entries[0].name == 'hello.txt'

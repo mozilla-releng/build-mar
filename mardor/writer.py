@@ -132,7 +132,7 @@ class MarWriter(object):
                             Compression.bz2.
         """
         if not os.path.isdir(path):
-            raise ValueError('path is not a directory')
+            raise ValueError('{} is not a directory'.format(path))
         for root, dirs, files in os.walk(path):
             for f in files:
                 self.add_file(os.path.join(root, f), compress)
@@ -171,7 +171,7 @@ class MarWriter(object):
                             Compression.bz2.
         """
         if not os.path.isfile(path):
-            raise ValueError('path is not a file')
+            raise ValueError('{} is not a file'.format(path))
         self.fileobj.seek(self.last_offset)
 
         with open(path, 'rb') as f:
