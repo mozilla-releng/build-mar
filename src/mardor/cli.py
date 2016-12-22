@@ -12,6 +12,8 @@ from argparse import ArgumentParser
 
 import mardor.mozilla
 from mardor.reader import MarReader
+from mardor.signing import SigningAlgo
+from mardor.signing import get_keysize
 from mardor.writer import MarWriter
 
 log = logging.getLogger(__name__)
@@ -38,6 +40,11 @@ def build_argparser():
                         "this option.")
     parser.add_argument("--verbose", dest="loglevel", action="store_const",
                         const=logging.DEBUG, default=logging.WARN)
+
+    parser.add_argument("--productversion", dest="productversion",
+                        help="product/version string")
+    parser.add_argument("--channel", dest="channel",
+                        help="channel this MAR file is applicable to")
 
     parser.add_argument("marfile")
     parser.add_argument("files", nargs=REMAINDER)
@@ -99,11 +106,13 @@ def do_list(marfile):
                 yield ("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
 
 
-def do_create(marfile, files, compress):
+def do_create(marfile, files, compress, productversion=None, channel=None,
+              signing_key=None, signing_algorithm=None):
     """Create a new MAR file."""
     with open(marfile, 'w+b') as f:
-        # TODO: extra info, signature
-        with MarWriter(f) as m:
+        with MarWriter(f, productversion=productversion, channel=channel,
+                       signing_key=signing_key,
+                       signing_algorithm=signing_algorithm) as m:
             for f in files:
                 m.add(f, compress=compress)
 
@@ -148,7 +157,24 @@ def main(argv=None):
 
     elif args.action == "create":
         compress = mardor.writer.Compression.bz2 if args.bz2 else None
-        do_create(marfile, args.files, compress)
+        if args.keyfiles:
+            signing_key = open(args.keyfiles[0], 'rb').read()
+            bits = get_keysize(signing_key)
+            if bits == 2048:
+                signing_algorithm = SigningAlgo.SHA1
+            elif bits == 4096:
+                signing_algorithm = SigningAlgo.SHA384
+            else:
+                parser.error("Unsupported key size {} from key {}".format(bits, args.keyfiles[0]))
+
+            print("Using {} to sign using algorithm {!s}".format(args.keyfiles[0], signing_algorithm))
+        else:
+            signing_key = None
+            signing_algorithm = None
+
+        do_create(marfile, args.files, compress,
+                  productversion=args.productversion, channel=args.channel,
+                  signing_key=signing_key, signing_algorithm=signing_algorithm)
 
     else:
         parser.error("Unsupported action {}".format(args.action))

@@ -12,8 +12,10 @@ from mardor.format import extras_header
 from mardor.format import index_header
 from mardor.format import mar_header
 from mardor.format import sigs_header
+from mardor.signing import SigningAlgo
 from mardor.signing import get_signature_data
 from mardor.signing import make_signer_v1
+from mardor.signing import make_signer_v2
 from mardor.utils import bz2_compress_stream
 from mardor.utils import write_to_file
 
@@ -41,6 +43,7 @@ class MarWriter(object):
     def __init__(self, fileobj,
                  productversion=None, channel=None,
                  signing_key=None,
+                 signing_algorithm=SigningAlgo.SHA384,
                  ):
         """Initialize a new MarWriter object.
 
@@ -57,6 +60,7 @@ class MarWriter(object):
             channel (str): channel name to encode in the MAR header
                 productversion and channel must be specified together
             signing_key (str): PEM encoded private key used for signing
+            signing_algorithm (SigningAlgo):
         """
         self.fileobj = fileobj
         self.entries = []
@@ -70,11 +74,15 @@ class MarWriter(object):
         self.productversion = productversion
         self.channel = channel
         self.signing_key = signing_key
+        self.signing_algorithm = signing_algorithm
 
         if productversion and channel:
             self.use_old_format = False
         else:
             self.use_old_format = True
+
+        if self.use_old_format and self.signing_key:
+            raise ValueError("productversion and channel must be specified when signing_key is")
 
         self.write_header()
         if not self.use_old_format:
@@ -202,10 +210,14 @@ class MarWriter(object):
             signing key was provided.
         """
         signers = []
-        if self.signing_key:
+        if self.signing_key and self.signing_algorithm == SigningAlgo.SHA1:
             # Algorithm 1: 2048 RSA key w/ SHA1 hash
             signer = make_signer_v1(self.signing_key)
-            signers.append(signer)
+            signers.append((1, signer))
+        elif self.signing_key and self.signing_algorithm == SigningAlgo.SHA384:
+            # Algorithm 2: 4096 RSA key w/ SHA384 hash
+            signer = make_signer_v2(self.signing_key)
+            signers.append((2, signer))
         return signers
 
     def dummy_signatures(self):
@@ -219,7 +231,15 @@ class MarWriter(object):
             .write_signatures()
         """
         signers = self.get_signers()
-        return [(1, b'0' * 256)] * len(signers)
+        signatures = []
+        for algo_id, signer in signers:
+            if algo_id == 1:
+                signatures.append((1, b'0' * 256))
+            elif algo_id == 2:
+                signatures.append((2, b'0' * 512))
+            else:
+                raise ValueError('Unsupported signing algorithm')
+        return signatures
 
     def calculate_signatures(self):
         """Calculate the signatures for this MAR file.
@@ -229,10 +249,9 @@ class MarWriter(object):
         """
         signers = self.get_signers()
         for block in get_signature_data(self.fileobj, self.filesize):
-            [sig.update(block) for sig in signers]
+            [sig.update(block) for (_, sig) in signers]
 
-        # NB: This only supports 1 signature of type 1 right now
-        signatures = [(1, sig.finalize()) for sig in signers]
+        signatures = [(algo_id, sig.finalize()) for (algo_id, sig) in signers]
         return signatures
 
     def write_signatures(self, signatures):
