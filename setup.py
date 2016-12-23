@@ -72,7 +72,6 @@ setup(
         'click',
         'cryptography',
         'construct',
-        'backports.lzma',
     ],
     extras_require={
         # eg:
