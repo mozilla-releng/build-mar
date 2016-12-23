@@ -156,6 +156,10 @@ class MarWriter(object):
             f = bz2_compress_stream(f)
         size = write_to_file(f, self.fileobj)
 
+        # On Windows, convert \ to /
+        if os.sep == '\\':
+            path = path.replace('\\', '/')
+
         e = dict(
             name=path,
             offset=self.last_offset,

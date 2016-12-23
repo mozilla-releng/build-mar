@@ -1,2 +1,16 @@
+[paths]
+source =
+   src/mardor
+   */site-packages/mardor
+
 [run]
-branch = True
+branch = true
+source =
+    mardor
+    tests
+parallel = true
+
+[report]
+show_missing = true
+precision = 2
+omit = *migrations*

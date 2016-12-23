@@ -62,13 +62,14 @@ def test_list_noextra(tmpdir):
     test_mar = tmpdir.join('test.mar')
 
     tmpdir.join('hello.txt').write('hello world')
+    tmpdir.join('hello.txt').chmod(0o666)
     with tmpdir.as_cwd():
         cli.do_create(str(test_mar), ['hello.txt'], 'bz2')
 
     lines = list(cli.do_list(str(test_mar)))
     assert lines == [
         'SIZE    MODE    NAME   ',
-        '     11 0644    hello.txt',
+        '     11 0666    hello.txt',
     ]
 
 

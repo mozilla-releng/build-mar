@@ -4,7 +4,6 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
-backports.lzma==0.0.6
 cffi==1.8.3
 construct==2.8.8
 coverage==4.2             # via pytest-cov
