@@ -18,7 +18,9 @@ include README.rst
 
 include get_mozilla_keys.sh
 include requirements.txt
+include requirements.in
 include test-requirements.txt
+include test-requirements.in
 
 include tox.ini .travis.yml appveyor.yml
 
