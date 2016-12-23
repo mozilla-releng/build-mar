@@ -64,14 +64,14 @@ Overview
 
 Package for handling Mozilla Archive files. MAR file format is documented at https://wiki.mozilla.org/Software_Update:MAR
 
-* Free software: BSD license
+* Free software: MPL 2.0 license
 
 Installation
 ============
 
 ::
 
-    pip install mardor
+    pip install mar
 
 Documentation
 =============
