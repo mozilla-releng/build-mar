@@ -1,104 +1,117 @@
-from mardor.bits import unpackint
-from mardor.utils import read_file
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""Signing, verification and key support for MAR files."""
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives import hashes, serialization
 
-try:
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import padding
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.exceptions import InvalidSignature
-    crypto = True
-except ImportError:
-    crypto = False
+from construct import Int64ub, Int32ub
 
-import logging
-log = logging.getLogger(__name__)
+from mardor.format import sigs_header
+from mardor.utils import file_iter
 
 
-def generate_signature(fp, updatefunc):
-    fp.seek(0)
-    # Magic
-    updatefunc(fp.read(4))
-    # index_offset
-    updatefunc(fp.read(4))
-    # file size
-    updatefunc(fp.read(8))
-    # number of signatures
-    num_sigs = fp.read(4)
-    updatefunc(num_sigs)
-    num_sigs = unpackint(num_sigs)
-    for i in range(num_sigs):
-        # signature algo
-        updatefunc(fp.read(4))
+def get_signature_data(fileobj, filesize):
+    """Read data from MAR file that is required for MAR signatures.
 
-        # signature size
-        sigsize = fp.read(4)
-        updatefunc(sigsize)
-        sigsize = unpackint(sigsize)
+    Args:
+        fileboj (file-like object): file-like object to read the MAR data from
+        filesize (int): the total size of the file
 
-        # Read this, but don't update the signature with it
-        fp.read(sigsize)
+    Yields:
+        blocks of bytes representing the data required to generate or validate
+        signatures.
+    """
+    # Read everything except the signature entries
+    # The first 8 bytes are covered, as is everything from the beginning
+    # of the additional section to the end of the file. The signature
+    # algorithm id and size fields are also covered.
 
-    # Read the rest of the file
-    for block in read_file(fp):
-        updatefunc(block)
+    # MAR header
+    fileobj.seek(0)
+    block = fileobj.read(8)
+    yield block
+
+    # Signatures header
+    sigs = sigs_header.parse_stream(fileobj)
+    block = Int64ub.build(filesize) + Int32ub.build(sigs.count)
+    yield block
+
+    # Signature algorithm id and size per entry
+    for sig in sigs.sigs:
+        block = Int32ub.build(sig.algorithm_id) + Int32ub.build(sig.size)
+        yield block
+
+    # Everything else in the file is covered
+    for block in file_iter(fileobj):
+        yield block
 
 
-class MarSignature:
-    """Represents a signature"""
-    size = None
-    sigsize = None
-    algo_id = None
-    algo_name = None
-    signature = None
-    _offset = None  # where in the file this signature is located
-    keyfile = None  # what key to use
+def make_verifier_v1(public_key, signature):
+    """Create verifier object to verify a `signature`.
 
-    @classmethod
-    def from_fileobj(cls, fp):
-        _offset = fp.tell()
-        algo_id = unpackint(fp.read(4))
-        self = cls(algo_id)
-        self._offset = _offset
-        sigsize = unpackint(fp.read(4))
-        assert sigsize == self.sigsize
-        log.debug("signature data at %i to %i", fp.tell(), fp.tell() + sigsize)
-        self.signature = fp.read(self.sigsize)
-        log.debug("ver %i signature %i bytes at %i", algo_id, sigsize, _offset)
-        return self
+    Args:
+        public_key (str): PEM formatted public key
+        signature (bytes): signature to verify
 
-    def __init__(self, algo_id, keyfile=None):
-        self.algo_id = algo_id
-        self.keyfile = keyfile
-        if self.algo_id == 1:
-            self.sigsize = 256
-            self.size = self.sigsize + 4 + 4
-            self._verifier = None
-            self.algo_name = "RSA-PKCS1-SHA1"
-        else:
-            raise ValueError("Unsupported signature algorithm: %s" % algo_id)
+    Returns:
+        A cryptography key verifier object
+    """
+    key = serialization.load_pem_public_key(
+        public_key,
+        backend=default_backend(),
+    )
+    verifier = key.verifier(
+        signature,
+        padding.PKCS1v15(),
+        hashes.SHA1(),
+    )
+    return verifier
 
-    def init_verifier(self):
-        if self.algo_id == 1:
-            key = serialization.load_pem_public_key(
-                open(self.keyfile, 'rb').read(), default_backend())
-            # Read the signature
-            verifier = key.verifier(
-                self.signature,
-                padding.PKCS1v15(),
-                hashes.SHA1(),
-            )
-            self._verifier = verifier
 
-    def update(self, data):
-        self._verifier.update(data)
+def make_signer_v1(private_key):
+    """Create a signer object that signs using `private_key`.
 
-    def verify_signature(self):
-        if self.algo_id == 1:
-            try:
-                return self._verifier.verify() is None
-            except InvalidSignature:
-                return False
+    Args:
+        private_key (str): PEM formatted private key
 
-    def write_signature(self, fp):
-        assert False
+    Returns:
+        A cryptography key signer object
+    """
+    key = serialization.load_pem_private_key(
+        private_key,
+        password=None,
+        backend=default_backend(),
+    )
+    signer = key.signer(
+        padding.PKCS1v15(),
+        hashes.SHA1(),
+    )
+    return signer
+
+
+def make_rsa_keypair(bits=2048):
+    """Generate an RSA keypair.
+
+    Args:
+        bits (int): number of bits to use for the key. defaults to 2048.
+
+    Returns:
+        (private_key, public_key) - both as PEM encoded strings
+    """
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=bits,
+        backend=default_backend(),
+    )
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return private_pem, public_pem
