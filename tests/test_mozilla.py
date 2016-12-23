@@ -1,9 +1,11 @@
 import os
-from mardor.mozilla import (release1, release2,
-                            nightly1, nightly2,
-                            dep1, dep2)
 
-
+from mardor.mozilla import dep1
+from mardor.mozilla import dep2
+from mardor.mozilla import nightly1
+from mardor.mozilla import nightly2
+from mardor.mozilla import release1
+from mardor.mozilla import release2
 from mardor.reader import MarReader
 
 

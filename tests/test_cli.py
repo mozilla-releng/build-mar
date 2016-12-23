@@ -2,11 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
-from mardor import cli
-from mardor.reader import Decompression, MarReader
-from mardor import mozilla
 
-from pytest import fixture, raises
+from pytest import fixture
+from pytest import raises
+
+from mardor import cli
+from mardor import mozilla
+from mardor.reader import Decompression
+from mardor.reader import MarReader
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
 

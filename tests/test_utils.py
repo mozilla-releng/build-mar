@@ -3,13 +3,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from itertools import repeat
 
-import pytest
-
-from mardor.utils import (takeexactly, bz2_compress_stream,
-                          bz2_decompress_stream, auto_decompress_stream, mkdir)
-
-from hypothesis import given, assume
 import hypothesis.strategies as st
+import pytest
+from hypothesis import assume
+from hypothesis import given
+
+from mardor.utils import auto_decompress_stream
+from mardor.utils import bz2_compress_stream
+from mardor.utils import bz2_decompress_stream
+from mardor.utils import mkdir
+from mardor.utils import takeexactly
 
 
 @given(st.lists(st.binary()), st.integers(min_value=0))
