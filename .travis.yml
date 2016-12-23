@@ -1,22 +1,40 @@
 language: python
+python: '3.5'
 sudo: false
+env:
+  global:
+    - LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so
+    - SEGFAULT_SIGNALS=all
+  matrix:
+    - TOXENV=check
+    - TOXENV=docs
 
-matrix:
-    include:
-        - python: "2.7"
-          env: TOXENV=flake8
-        - python: "2.7"
-          env: TOXENV=py27
-        - python: "3.4"
-          env: TOXENV=py34
-        - python: "3.5"
-          env: TOXENV=py35
-
+    - TOXENV=py27,coveralls,codecov
+    - TOXENV=py34,coveralls,codecov
+    - TOXENV=py35,coveralls,codecov
+    - TOXENV=py36,coveralls,codecov
+    - TOXENV=pypy,coveralls,codecov
+before_install:
+  - python --version
+  - uname -a
+  - lsb_release -a
 install:
-    - travis_retry pip install tox coveralls
-
-script: tox
-
-after_success:
-    - coveralls debug
-    - coveralls
+  - pip install tox
+  - virtualenv --version
+  - easy_install --version
+  - pip --version
+  - tox --version
+script:
+  - tox -v
+after_failure:
+  - more .tox/log/* | cat
+  - more .tox/*/log/* | cat
+before_cache:
+  - rm -rf $HOME/.cache/pip/log
+cache:
+  directories:
+    - $HOME/.cache/pip
+notifications:
+  email:
+    on_success: never
+    on_failure: always
