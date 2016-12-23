@@ -8,16 +8,20 @@ verify MAR files.
 """
 
 import os
-
 from enum import Enum
 
 from cryptography.exceptions import InvalidSignature
 
-from mardor.utils import (file_iter, takeexactly, auto_decompress_stream,
-                          bz2_decompress_stream, write_to_file, mkdir,
-                          safejoin)
 from mardor.format import mar
-from mardor.signing import get_signature_data, make_verifier_v1
+from mardor.signing import get_signature_data
+from mardor.signing import make_verifier_v1
+from mardor.utils import auto_decompress_stream
+from mardor.utils import bz2_decompress_stream
+from mardor.utils import file_iter
+from mardor.utils import mkdir
+from mardor.utils import safejoin
+from mardor.utils import takeexactly
+from mardor.utils import write_to_file
 
 
 class Decompression(Enum):

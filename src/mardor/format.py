@@ -8,9 +8,21 @@ This relies on the construct module for specifying the data structures.
 See also https://wiki.mozilla.org/Software_Update:MAR
 """
 
-from construct import (CString, Struct, Array, Bytes, Const, GreedyRange, If,
-                       Int32ub, Int64ub, Pointer, this, Rebuild,
-                       len_, Padding, Select)
+from construct import Array
+from construct import Bytes
+from construct import Const
+from construct import CString
+from construct import GreedyRange
+from construct import If
+from construct import Int32ub
+from construct import Int64ub
+from construct import Padding
+from construct import Pointer
+from construct import Rebuild
+from construct import Select
+from construct import Struct
+from construct import len_
+from construct import this
 
 mar_header = "mar_header" / Struct(
     "magic" / Const(b"MAR1"),

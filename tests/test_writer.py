@@ -3,9 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import bz2
 
-from mardor.writer import MarWriter
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
+from mardor.writer import MarWriter
 
 
 def test_writer(tmpdir):

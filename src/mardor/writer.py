@@ -6,13 +6,16 @@
 This module provides the MarWriter class which is used to write MAR files.
 """
 import os
-
-from mardor.utils import bz2_compress_stream, write_to_file
-from mardor.format import mar_header, sigs_header, extras_header, index_header
-from mardor.signing import make_signer_v1, get_signature_data
-
-
 from enum import Enum
+
+from mardor.format import extras_header
+from mardor.format import index_header
+from mardor.format import mar_header
+from mardor.format import sigs_header
+from mardor.signing import get_signature_data
+from mardor.signing import make_signer_v1
+from mardor.utils import bz2_compress_stream
+from mardor.utils import write_to_file
 
 
 class Compression(Enum):

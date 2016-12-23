@@ -4,15 +4,16 @@
 # The MAR format is documented at
 # https://wiki.mozilla.org/Software_Update:MAR
 
+import logging
 import os
 import sys
-from argparse import ArgumentParser, REMAINDER
+from argparse import REMAINDER
+from argparse import ArgumentParser
 
+import mardor.mozilla
 from mardor.reader import MarReader
 from mardor.writer import MarWriter
-import mardor.mozilla
 
-import logging
 log = logging.getLogger(__name__)
 
 
