@@ -13,8 +13,10 @@ from enum import Enum
 from cryptography.exceptions import InvalidSignature
 
 from mardor.format import mar
+from mardor.signing import SigningAlgo
 from mardor.signing import get_signature_data
 from mardor.signing import make_verifier_v1
+from mardor.signing import make_verifier_v2
 from mardor.utils import auto_decompress_stream
 from mardor.utils import bz2_decompress_stream
 from mardor.utils import file_iter
@@ -128,11 +130,16 @@ class MarReader(object):
 
         verifiers = []
         for sig in self.mardata.signatures.sigs:
-            if sig.algorithm_id == 1:
+            if sig.algorithm_id == SigningAlgo.SHA1:
                 verifier = make_verifier_v1(verify_key, sig.signature)
                 verifiers.append(verifier)
+            elif sig.algorithm_id == SigningAlgo.SHA384:
+                verifier = make_verifier_v2(verify_key, sig.signature)
+                verifiers.append(verifier)
             else:
-                raise ValueError('Unsupported algorithm')
+                raise ValueError('Unsupported algorithm ({})'.format(sig.algorithm_id))
+
+        assert len(verifiers) == len(self.mardata.signatures.sigs)
 
         for block in get_signature_data(self.fileobj,
                                         self.mardata.signatures.filesize):

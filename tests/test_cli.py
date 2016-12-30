@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
 
+import pytest
 from pytest import fixture
 from pytest import raises
 
@@ -10,6 +11,7 @@ from mardor import cli
 from mardor import mozilla
 from mardor.reader import Decompression
 from mardor.reader import MarReader
+from mardor.signing import make_rsa_keypair
 
 TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
 
@@ -117,6 +119,27 @@ def test_main_create(tmpdir):
     tmpdir.join('hello.txt').write('hello world')
     with tmpdir.as_cwd():
         cli.main(['-c', 'test.mar', 'hello.txt'])
+
+
+@pytest.mark.parametrize('key_size', [2048, 4096])
+def test_main_create_signed_v1(tmpdir, key_size):
+    priv, pub = make_rsa_keypair(key_size)
+    tmpdir.join('hello.txt').write('hello world')
+    tmpdir.join('key.pem').write(priv)
+    with tmpdir.as_cwd():
+        cli.main(['--productversion', 'foo', '--channel', 'bar', '-k',
+                  'key.pem', '-c', 'test.mar', 'hello.txt'])
+        cli.main(['-t', '-v', '-k', 'key.pem', 'test.mar'])
+
+
+def test_main_create_signed_badkeysize(tmpdir):
+    priv, pub = make_rsa_keypair(1024)
+    tmpdir.join('hello.txt').write('hello world')
+    tmpdir.join('key.pem').write(priv)
+    with tmpdir.as_cwd():
+        with raises(SystemExit):
+            cli.main(['--productversion', 'foo', '--channel', 'bar', '-k',
+                      'key.pem', '-c', 'test.mar', 'hello.txt'])
 
 
 def test_main_create_chdir(tmpdir):

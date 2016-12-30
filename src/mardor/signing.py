@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Signing, verification and key support for MAR files."""
+from enum import IntEnum
+
 from construct import Int32ub
 from construct import Int64ub
 from cryptography.hazmat.backends import default_backend
@@ -12,6 +14,39 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from mardor.format import sigs_header
 from mardor.utils import file_iter
+
+
+class SigningAlgo(IntEnum):
+    """
+    Enum representing supported signing algorithms.
+
+    SHA1: RSA-PKCS1-SHA1 using 2048 bit key
+    SHA384: RSA-PKCS1-SHA384 using 4096 bit key
+    """
+    SHA1 = 1
+    SHA384 = 2
+
+
+def get_publickey(keydata):
+    try:
+        key = serialization.load_pem_public_key(
+            keydata,
+            backend=default_backend(),
+        )
+        return key
+    except ValueError:
+        key = serialization.load_pem_private_key(
+            keydata,
+            password=None,
+            backend=default_backend(),
+        )
+        key = key.public_key()
+        return key
+
+
+def get_keysize(keydata):
+    key = get_publickey(keydata)
+    return key.key_size
 
 
 def get_signature_data(fileobj, filesize):
@@ -60,14 +95,35 @@ def make_verifier_v1(public_key, signature):
     Returns:
         A cryptography key verifier object
     """
-    key = serialization.load_pem_public_key(
-        public_key,
-        backend=default_backend(),
-    )
+    key = get_publickey(public_key)
+    if key.key_size != 2048:
+        raise ValueError('2048 bit RSA key required')
+
     verifier = key.verifier(
         signature,
         padding.PKCS1v15(),
         hashes.SHA1(),
+    )
+    return verifier
+
+
+def make_verifier_v2(public_key, signature):
+    """Create verifier object to verify a `signature`.
+
+    Args:
+        public_key (str): PEM formatted public key
+        signature (bytes): signature to verify
+
+    Returns:
+        A cryptography key verifier object
+    """
+    key = get_publickey(public_key)
+    if key.key_size != 4096:
+        raise ValueError('2048 bit RSA key required')
+    verifier = key.verifier(
+        signature,
+        padding.PKCS1v15(),
+        hashes.SHA384(),
     )
     return verifier
 
@@ -86,6 +142,8 @@ def make_signer_v1(private_key):
         password=None,
         backend=default_backend(),
     )
+    if key.key_size != 2048:
+        raise ValueError('2048 bit RSA key required')
     signer = key.signer(
         padding.PKCS1v15(),
         hashes.SHA1(),
@@ -93,11 +151,34 @@ def make_signer_v1(private_key):
     return signer
 
 
-def make_rsa_keypair(bits=2048):
+def make_signer_v2(private_key):
+    """Create a signer object that signs using `private_key`.
+
+    Args:
+        private_key (str): PEM formatted private key
+
+    Returns:
+        A cryptography key signer object
+    """
+    key = serialization.load_pem_private_key(
+        private_key,
+        password=None,
+        backend=default_backend(),
+    )
+    if key.key_size != 4096:
+        raise ValueError('2048 bit RSA key required')
+    signer = key.signer(
+        padding.PKCS1v15(),
+        hashes.SHA384(),
+    )
+    return signer
+
+
+def make_rsa_keypair(bits):
     """Generate an RSA keypair.
 
     Args:
-        bits (int): number of bits to use for the key. defaults to 2048.
+        bits (int): number of bits to use for the key.
 
     Returns:
         (private_key, public_key) - both as PEM encoded strings

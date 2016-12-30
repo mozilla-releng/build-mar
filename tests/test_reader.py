@@ -42,7 +42,7 @@ def test_verify_nosig(mar_cu):
 
 
 def test_verify_wrongkey():
-    private, public = make_rsa_keypair()
+    private, public = make_rsa_keypair(2048)
     with MarReader(open(TEST_MAR, 'rb')) as m:
         assert not m.verify(public)
 
@@ -50,7 +50,7 @@ def test_verify_wrongkey():
 def test_verify_unsupportedalgo():
     pubkey = open(TEST_PUBKEY, 'rb').read()
     with MarReader(open(TEST_MAR, 'rb')) as m:
-        m.mardata.signatures.sigs[0].algorithm_id = 2
+        m.mardata.signatures.sigs[0].algorithm_id = 3
         with pytest.raises(ValueError, message='Unsupported algorithm'):
             m.verify(pubkey)
 
