@@ -165,7 +165,8 @@ class MarWriter(object):
         size = write_to_file(f, self.fileobj)
 
         # On Windows, convert \ to /
-        if os.sep == '\\':
+        # very difficult to mock this out for coverage on linux
+        if os.sep == '\\':  # pragma: no cover
             path = path.replace('\\', '/')
 
         e = dict(
@@ -237,8 +238,6 @@ class MarWriter(object):
                 signatures.append((1, b'0' * 256))
             elif algo_id == 2:
                 signatures.append((2, b'0' * 512))
-            else:
-                raise ValueError('Unsupported signing algorithm')
         return signatures
 
     def calculate_signatures(self):
@@ -275,7 +274,8 @@ class MarWriter(object):
         self.fileobj.write(sigs)
         signatures_len = len(sigs)
         self.additional_offset = self.signature_offset + signatures_len
-        if not self.additional_offset == self.fileobj.tell():
+        # sanity check; this should never happen
+        if not self.additional_offset == self.fileobj.tell():  # pragma: no cover
             raise IOError('ended up at unexpected offset')
 
     def write_additional(self, productversion, channel):

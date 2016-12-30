@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import bz2
 
+import pytest
+
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
 from mardor.writer import MarWriter
@@ -122,15 +124,29 @@ def test_additional(tmpdir):
                     b'hello world')
 
 
-def test_signing_v1(tmpdir):
-    private_key, public_key = make_rsa_keypair(2048)
+def test_bad_parameters(tmpdir):
+    mar_p = tmpdir.join('test.mar')
+    f = mar_p.open('w+b')
+    with pytest.raises(ValueError):
+        MarWriter(f, productversion='foo')
+    with pytest.raises(ValueError):
+        MarWriter(f, channel='bar')
+    with pytest.raises(ValueError):
+        MarWriter(f, signing_key='SECRET')
+
+
+@pytest.mark.parametrize('key_size, algo_id', [
+    (2048, 1),
+    (4096, 2),])
+def test_signing(tmpdir, key_size, algo_id):
+    private_key, public_key = make_rsa_keypair(key_size)
 
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
     mar_p = tmpdir.join('test.mar')
     with mar_p.open('w+b') as f:
         with MarWriter(f, signing_key=private_key, channel='release',
-                       productversion='99.9', signing_algorithm=1) as m:
+                       productversion='99.9', signing_algorithm=algo_id) as m:
             with tmpdir.as_cwd():
                 m.add('message.txt')
 
@@ -146,26 +162,25 @@ def test_signing_v1(tmpdir):
                     b'hello world')
             assert m.verify(public_key)
 
-def test_signing_v2(tmpdir):
-    private_key, public_key = make_rsa_keypair(4096)
 
+def test_addfile_as_dir(tmpdir):
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
     mar_p = tmpdir.join('test.mar')
-    with mar_p.open('w+b') as f:
-        with MarWriter(f, signing_key=private_key, channel='release',
-                       productversion='99.9', signing_algorithm=2) as m:
+    with mar_p.open('wb') as f:
+        with MarWriter(f) as m:
             with tmpdir.as_cwd():
-                m.add('message.txt')
+                with pytest.raises(ValueError):
+                    m.add_dir('message.txt', None)
 
-    assert mar_p.size() > 0
-    with mar_p.open('rb') as f:
-        with MarReader(f) as m:
-            assert m.mardata.additional.count == 1
-            assert m.mardata.signatures.count == 1
-            assert len(m.mardata.index.entries) == 1
-            assert m.mardata.index.entries[0].name == 'message.txt'
-            m.extract(str(tmpdir.join('extracted')))
-            assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
-                    b'hello world')
-            assert m.verify(public_key)
+
+def test_adddir_as_file(tmpdir):
+    message_p = tmpdir.join('subdir', 'message.txt')
+    tmpdir.join('subdir').mkdir()
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with MarWriter(f) as m:
+            with tmpdir.as_cwd():
+                with pytest.raises(ValueError):
+                    m.add_file('subdir', None)

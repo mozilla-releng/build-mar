@@ -22,9 +22,11 @@ def mkdir(path):
     """
     try:
         os.makedirs(path)
-        if not os.path.isdir(path):
+        # sanity check
+        if not os.path.isdir(path):  # pragma: no cover
             raise IOError('path is not a directory')
     except OSError as e:
+        # EEXIST
         if e.errno == 17 and os.path.isdir(path):
             return
         raise
@@ -70,7 +72,8 @@ def takeexactly(iterable, size):
     if total < size:
         raise ValueError('not enough data (yielded {} of {})')
 
-    if total != size:
+    # sanity check; this should never happen
+    if total != size:  # pragma: no cover
         raise ValueError('yielded too much data')
 
 

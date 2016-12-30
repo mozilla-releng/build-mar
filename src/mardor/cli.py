@@ -176,5 +176,6 @@ def main(argv=None):
                   productversion=args.productversion, channel=args.channel,
                   signing_key=signing_key, signing_algorithm=signing_algorithm)
 
-    else:
+    # sanity check; should never happen
+    else:  # pragma: no cover
         parser.error("Unsupported action {}".format(args.action))
