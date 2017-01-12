@@ -24,7 +24,7 @@ def parser():
 def test_argparser(parser):
     args = ['-c', 'test.mar', 'file1', 'file2']
     args = parser.parse_args(args)
-    assert args.action == 'create'
+    assert args.create == 'test.mar'
 
 
 def test_extract(tmpdir):
@@ -76,11 +76,11 @@ def test_list_noextra(tmpdir):
 
 
 def test_main_verify():
-    args = ['-t', '-v', '-k', ':mozilla-release', TEST_MAR]
+    args = ['-v', TEST_MAR, '-k', ':mozilla-release']
     cli.main(args)
 
     with raises(SystemExit):
-        args = ['-t', '-v', '-k', ':mozilla-nightly', TEST_MAR]
+        args = ['-v', TEST_MAR, '-k', ':mozilla-nightly']
         cli.main(args)
 
 
@@ -109,7 +109,7 @@ def test_main_extract(tmpdir):
 
 def test_main_extract_bz2(tmpdir):
     with tmpdir.as_cwd():
-        cli.main(['-x', '-j', TEST_MAR])
+        cli.main(['-x', TEST_MAR, '-j'])
 
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
             b'pref("app.update.channel", "release");\n')
@@ -129,7 +129,7 @@ def test_main_create_signed_v1(tmpdir, key_size):
     with tmpdir.as_cwd():
         cli.main(['--productversion', 'foo', '--channel', 'bar', '-k',
                   'key.pem', '-c', 'test.mar', 'hello.txt'])
-        cli.main(['-t', '-v', '-k', 'key.pem', 'test.mar'])
+        cli.main(['-v', 'test.mar', '-k', 'key.pem'])
 
 
 def test_main_create_signed_badkeysize(tmpdir):

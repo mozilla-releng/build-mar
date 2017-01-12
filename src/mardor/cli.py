@@ -22,32 +22,41 @@ log = logging.getLogger(__name__)
 def build_argparser():
     """Build argument parser for the CLI."""
     parser = ArgumentParser('Utility for managing MAR files')
-    parser.add_argument("-x", "--extract", action="store_const",
-                        const="extract", dest="action", help="extract MAR")
-    parser.add_argument("-t", "--list", action="store_const", const="list",
-                        dest="action", help="print out MAR contents")
-    parser.add_argument("-c", "--create", action="store_const", const="create",
-                        dest="action", help="create MAR")
+    create_group = parser.add_argument_group("Create a MAR file")
+    create_group.add_argument("-c", "--create", metavar="MARFILE", help="create MAR")
+    create_group.add_argument("-V", "--productversion", dest="productversion",
+                              help="product/version string")
+    create_group.add_argument("-H", "--channel", dest="channel",
+                              help="channel this MAR file is applicable to")
+    create_group.add_argument("files", nargs=REMAINDER,
+                              help="files to add to the MAR file")
+
+    extract_group = parser.add_argument_group("Extract a MAR file")
+    extract_group.add_argument("-x", "--extract", help="extract MAR", metavar="MARFILE")
+
+    list_group = parser.add_argument_group("Print information on a MAR file")
+    list_group.add_argument("-t", "--list", help="print out MAR contents",
+                            metavar="MARFILE")
+    list_group.add_argument("-T", "--list-detailed", metavar="MARFILE",
+                            help="print out MAR contents including signatures")
+
+    verify_group = parser.add_argument_group("Verify a MAR file")
+    verify_group.add_argument("-v", "--verify", metavar="MARFILE",
+                              help="verify the marfile")
+
     parser.add_argument("-j", "--bzip2", action="store_true", dest="bz2",
                         help="compress/decompress members with BZ2")
+
     parser.add_argument("-k", "--keyfiles", dest="keyfiles", action='append',
                         help="sign/verify with given key(s)")
-    parser.add_argument("-v", "--verify", dest="verify", action="store_true",
-                        help="verify the marfile", default=False)
     parser.add_argument("-C", "--chdir", dest="chdir",
                         help="chdir to this directory before creating or "
                         "extracing; location of marfile isn't affected by "
                         "this option.")
     parser.add_argument("--verbose", dest="loglevel", action="store_const",
-                        const=logging.DEBUG, default=logging.WARN)
-
-    parser.add_argument("--productversion", dest="productversion",
-                        help="product/version string")
-    parser.add_argument("--channel", dest="channel",
-                        help="channel this MAR file is applicable to")
-
-    parser.add_argument("marfile")
-    parser.add_argument("files", nargs=REMAINDER)
+                        const=logging.DEBUG, default=logging.WARN,
+                        help="increase logging verbosity")
+    parser.add_argument('--version', action='version', version='mar version {}'.format(mardor.version_str))
 
     return parser
 
@@ -125,38 +134,40 @@ def main(argv=None):
 
     logging.basicConfig(level=args.loglevel, format="%(message)s")
 
-    if not args.action:
-        parser.error("Must specify something to do (one of -x, -t, -c)")
+    # Make sure only one action has been specified
+    if len([a for a in [args.create, args.extract, args.verify, args.list, args.list_detailed] if a is not None]) != 1:
+        parser.error("Must specify something to do (one of -c, -x, -t, -T, -v)")
 
-    if args.action == 'create' and not args.files:
+    if args.create and not args.files:
         parser.error("Must specify at least one file to add to marfile")
 
     if args.verify and not args.keyfiles:
         parser.error("Must specify a key file when verifying")
 
-    marfile = os.path.abspath(args.marfile)
-
-    # Move into the directory requested; we already have the absolute path of
-    # the MAR file
-    if args.chdir:
-        os.chdir(args.chdir)
-
-    if args.action == "extract":
+    if args.extract:
+        marfile = os.path.abspath(args.extract)
         decompress = mardor.reader.Decompression.bz2 if args.bz2 else None
+        if args.chdir:
+            os.chdir(args.chdir)
         do_extract(marfile, os.getcwd(), decompress)
 
-    elif args.action == "list":
-        if args.verify:
-            if do_verify(marfile, args.keyfiles):
-                print("Verification OK")
-            else:
-                print("Verification failed")
-                sys.exit(1)
+    elif args.verify:
+        if do_verify(args.verify, args.keyfiles):
+            print("Verification OK")
+            return
+        else:
+            print("Verification failed")
+            sys.exit(1)
 
-        print("\n".join(do_list(marfile)))
+    elif args.list:
+        print("\n".join(do_list(args.list)))
 
-    elif args.action == "create":
+    elif args.list_detailed:
+        print("\n".join(do_list(args.list_detailed)))
+
+    elif args.create:
         compress = mardor.writer.Compression.bz2 if args.bz2 else None
+        marfile = os.path.abspath(args.create)
         if args.keyfiles:
             signing_key = open(args.keyfiles[0], 'rb').read()
             bits = get_keysize(signing_key)
@@ -172,10 +183,12 @@ def main(argv=None):
             signing_key = None
             signing_algorithm = None
 
+        if args.chdir:
+            os.chdir(args.chdir)
         do_create(marfile, args.files, compress,
                   productversion=args.productversion, channel=args.channel,
                   signing_key=signing_key, signing_algorithm=signing_algorithm)
 
     # sanity check; should never happen
     else:  # pragma: no cover
-        parser.error("Unsupported action {}".format(args.action))
+        parser.error("Unsupported action")
