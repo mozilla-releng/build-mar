@@ -24,7 +24,7 @@ def parser():
 def test_argparser(parser):
     args = ['-c', 'test.mar', 'file1', 'file2']
     args = parser.parse_args(args)
-    assert args.action == 'create'
+    assert args.create == 'test.mar'
 
 
 def test_extract(tmpdir):
@@ -56,8 +56,13 @@ def test_verify(tmpdir):
 
 def test_list():
     text = "\n".join(cli.do_list(TEST_MAR))
+    assert "\n141     0664    update.manifest\n" in text
+
+
+def test_list_detailed():
+    text = "\n".join(cli.do_list(TEST_MAR, detailed=True))
     assert "Product version: 100.0\n" in text
-    assert "\n    141 0664    update.manifest\n" in text
+    assert "\n141     0664    update.manifest\n" in text
 
 
 def test_list_noextra(tmpdir):
@@ -71,21 +76,29 @@ def test_list_noextra(tmpdir):
     lines = list(cli.do_list(str(test_mar)))
     assert lines == [
         'SIZE    MODE    NAME   ',
-        '     11 0666    hello.txt',
+        '11      0666    hello.txt',
     ]
 
 
 def test_main_verify():
-    args = ['-t', '-v', '-k', ':mozilla-release', TEST_MAR]
+    args = ['-v', TEST_MAR, '-k', ':mozilla-release']
     cli.main(args)
 
     with raises(SystemExit):
-        args = ['-t', '-v', '-k', ':mozilla-nightly', TEST_MAR]
+        args = ['-v', TEST_MAR, '-k', ':mozilla-nightly']
+        cli.main(args)
+
+    with raises(SystemExit):
+        args = ['-v', TEST_MAR]
         cli.main(args)
 
 
 def test_main_list():
     cli.main(['-t', TEST_MAR])
+
+
+def test_main_list_detailed():
+    cli.main(['-T', TEST_MAR])
 
 
 def test_main_noaction():
@@ -109,7 +122,7 @@ def test_main_extract(tmpdir):
 
 def test_main_extract_bz2(tmpdir):
     with tmpdir.as_cwd():
-        cli.main(['-x', '-j', TEST_MAR])
+        cli.main(['-x', TEST_MAR, '-j'])
 
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
             b'pref("app.update.channel", "release");\n')
@@ -129,7 +142,7 @@ def test_main_create_signed_v1(tmpdir, key_size):
     with tmpdir.as_cwd():
         cli.main(['--productversion', 'foo', '--channel', 'bar', '-k',
                   'key.pem', '-c', 'test.mar', 'hello.txt'])
-        cli.main(['-t', '-v', '-k', 'key.pem', 'test.mar'])
+        cli.main(['-v', 'test.mar', '-k', 'key.pem'])
 
 
 def test_main_create_signed_badkeysize(tmpdir):
@@ -150,3 +163,8 @@ def test_main_create_chdir(tmpdir):
     with MarReader(tmpmar.open('rb')) as m:
         assert len(m.mardata.index.entries) == 1
         assert m.mardata.index.entries[0].name == 'hello.txt'
+
+
+def test_main_extract_chdir(tmpdir):
+    cli.main(['-C', str(tmpdir), '-x', TEST_MAR])
+    assert tmpdir.join('defaults/pref/channel-prefs.js').check()
