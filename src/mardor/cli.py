@@ -95,7 +95,7 @@ def do_verify(marfile, keyfiles):
             return any(m.verify(key) for key in keys)
 
 
-def do_list(marfile):
+def do_list(marfile, detailed=False):
     """
     List the MAR file.
 
@@ -103,16 +103,22 @@ def do_list(marfile):
     """
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
-            if m.mardata.additional:
-                for s in m.mardata.additional.sections:
-                    if s.id == 1:
-                        yield ("Product version: {}".format(s.productversion))
-                        yield ("Channel: {}".format(s.channel))
-                    else:
-                        yield ("Unknown additional data")
+            if detailed:
+                if m.mardata.signatures:
+                    yield "Signature block found with {} signature".format(m.mardata.signatures.count)
+                if m.mardata.additional:
+                    yield "{} additional block found:".format(len(m.mardata.additional.sections))
+                    for s in m.mardata.additional.sections:
+                        if s.id == 1:
+                            yield ("  - Product Information Block:")
+                            yield ("    - MAR channel name: {}".format(s.channel))
+                            yield ("    - Product version: {}".format(s.productversion))
+                            yield ""
+                        else:
+                            yield ("Unknown additional data")
             yield ("{:7s} {:7s} {:7s}".format("SIZE", "MODE", "NAME"))
             for e in m.mardata.index.entries:
-                yield ("{:7d} {:04o}    {}".format(e.size, e.flags, e.name))
+                yield ("{:<7d} {:04o}    {}".format(e.size, e.flags, e.name))
 
 
 def do_create(marfile, files, compress, productversion=None, channel=None,
@@ -163,7 +169,7 @@ def main(argv=None):
         print("\n".join(do_list(args.list)))
 
     elif args.list_detailed:
-        print("\n".join(do_list(args.list_detailed)))
+        print("\n".join(do_list(args.list_detailed, detailed=True)))
 
     elif args.create:
         compress = mardor.writer.Compression.bz2 if args.bz2 else None

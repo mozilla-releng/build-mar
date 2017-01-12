@@ -56,8 +56,13 @@ def test_verify(tmpdir):
 
 def test_list():
     text = "\n".join(cli.do_list(TEST_MAR))
+    assert "\n141     0664    update.manifest\n" in text
+
+
+def test_list_detailed():
+    text = "\n".join(cli.do_list(TEST_MAR, detailed=True))
     assert "Product version: 100.0\n" in text
-    assert "\n    141 0664    update.manifest\n" in text
+    assert "\n141     0664    update.manifest\n" in text
 
 
 def test_list_noextra(tmpdir):
@@ -71,7 +76,7 @@ def test_list_noextra(tmpdir):
     lines = list(cli.do_list(str(test_mar)))
     assert lines == [
         'SIZE    MODE    NAME   ',
-        '     11 0666    hello.txt',
+        '11      0666    hello.txt',
     ]
 
 
@@ -83,9 +88,17 @@ def test_main_verify():
         args = ['-v', TEST_MAR, '-k', ':mozilla-nightly']
         cli.main(args)
 
+    with raises(SystemExit):
+        args = ['-v', TEST_MAR]
+        cli.main(args)
+
 
 def test_main_list():
     cli.main(['-t', TEST_MAR])
+
+
+def test_main_list_detailed():
+    cli.main(['-T', TEST_MAR])
 
 
 def test_main_noaction():
@@ -150,3 +163,8 @@ def test_main_create_chdir(tmpdir):
     with MarReader(tmpmar.open('rb')) as m:
         assert len(m.mardata.index.entries) == 1
         assert m.mardata.index.entries[0].name == 'hello.txt'
+
+
+def test_main_extract_chdir(tmpdir):
+    cli.main(['-C', str(tmpdir), '-x', TEST_MAR])
+    assert tmpdir.join('defaults/pref/channel-prefs.js').check()
