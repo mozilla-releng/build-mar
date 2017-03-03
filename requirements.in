@@ -1,4 +1,4 @@
-cryptography==1.5.2
-construct==2.8.8
-enum34==1.1.6
-click==6.7
+cryptography
+construct
+enum34
+click
