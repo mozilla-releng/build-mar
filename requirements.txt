@@ -10,11 +10,11 @@ click==6.7
 construct==2.8.10
 cryptography==1.7.2
 enum34==1.1.6
-idna==2.4                 # via cryptography
+idna==2.5                 # via cryptography
 packaging==16.8           # via setuptools
 pyasn1==0.2.3             # via cryptography
 pycparser==2.17           # via cffi
-pyparsing==2.1.10         # via packaging
+pyparsing==2.2.0         # via packaging
 six==1.10.0               # via cryptography, packaging, setuptools
 
 # The following packages are considered to be unsafe in a requirements file:
