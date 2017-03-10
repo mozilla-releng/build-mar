@@ -9,7 +9,7 @@ cffi==1.9.1
 click==6.7
 construct==2.8.10
 coverage==4.3.4           # via pytest-cov
-cryptography==1.7.2
+cryptography==1.8
 enum34==1.1.6
 hypothesis==3.6.1
 idna==2.5
