@@ -22,7 +22,7 @@ pycparser==2.17
 pyparsing==2.2.0
 pytest-cov==2.4.0
 pytest-travis-fold==1.2.0
-pytest==3.0.6
+pytest==3.0.7
 six==1.10.0
 
 # The following packages are considered to be unsafe in a requirements file:
