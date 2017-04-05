@@ -8,7 +8,7 @@ appdirs==1.4.3
 asn1crypto==0.22.0
 cffi==1.10.0
 click==6.7
-construct==2.8.10
+construct==2.8.11
 coverage==4.3.4           # via pytest-cov
 cryptography==1.8.1
 enum34==1.1.6

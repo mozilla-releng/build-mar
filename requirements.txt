@@ -8,7 +8,7 @@ appdirs==1.4.3            # via setuptools
 asn1crypto==0.22.0        # via cryptography
 cffi==1.10.0               # via cryptography
 click==6.7
-construct==2.8.10
+construct==2.8.11
 cryptography==1.8.1
 enum34==1.1.6
 idna==2.5                 # via cryptography
