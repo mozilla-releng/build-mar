@@ -184,3 +184,26 @@ def test_adddir_as_file(tmpdir):
             with tmpdir.as_cwd():
                 with pytest.raises(ValueError):
                     m.add_file('subdir', None)
+
+
+def test_xz_writer(tmpdir):
+    message_p = tmpdir.join('message.txt')
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with MarWriter(f, xz_compression=True) as m:
+            with tmpdir.as_cwd():
+                m.add('message.txt')
+
+    assert mar_p.size() > 0
+
+    with mar_p.open('rb') as f:
+        with MarReader(f) as m:
+            assert m.mardata.is_compressed
+            assert m.mardata.additional is None
+            assert m.mardata.signatures is None
+            assert len(m.mardata.index.entries) == 1
+            assert m.mardata.index.entries[0].name == 'message.txt'
+            m.extract(str(tmpdir.join('extracted')))
+            assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
+                    b'hello world')

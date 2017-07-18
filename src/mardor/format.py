@@ -10,6 +10,7 @@ See also https://wiki.mozilla.org/Software_Update:MAR
 
 from construct import Array
 from construct import Bytes
+from construct import Computed
 from construct import Const
 from construct import CString
 from construct import GreedyRange
@@ -107,4 +108,8 @@ mar = "mar" / Struct(
     # Only add them if the earliest entry offset is greater than 8
     "signatures" / If(_has_sigs, sigs_header),
     "additional" / If(_has_sigs, extras_header),
+    "data_offset" / Computed(lambda ctx: ctx.index.entries[0].offset),
+    "data_length" / Computed(this.header.index_offset - this.data_offset),
+    "data_header" / Pointer(this.data_offset, Bytes(6)),
+    "is_compressed" / Computed(this.data_header == b'\xfd7zXZ\x00'),
 )

@@ -6,6 +6,7 @@
 This module provides the MarWriter class which is used to write MAR files.
 """
 import os
+import tempfile
 from enum import Enum
 
 from mardor.format import extras_header
@@ -17,7 +18,9 @@ from mardor.signing import get_signature_data
 from mardor.signing import make_signer_v1
 from mardor.signing import make_signer_v2
 from mardor.utils import bz2_compress_stream
+from mardor.utils import file_iter
 from mardor.utils import write_to_file
+from mardor.utils import xz_compress_stream
 
 
 class Compression(Enum):
@@ -26,10 +29,12 @@ class Compression(Enum):
 
     none: no compression
     bz2: bz2 compression
+    xz: xz compression
     """
 
     none = 0
     bz2 = 1
+    xz = 2
 
 
 class MarWriter(object):
@@ -44,6 +49,7 @@ class MarWriter(object):
                  productversion=None, channel=None,
                  signing_key=None,
                  signing_algorithm=SigningAlgo.SHA384,
+                 xz_compression=False,
                  ):
         """Initialize a new MarWriter object.
 
@@ -62,7 +68,12 @@ class MarWriter(object):
             signing_key (str): PEM encoded private key used for signing
             signing_algorithm (SigningAlgo):
         """
+        self.xz_compression = xz_compression
         self.fileobj = fileobj
+        if xz_compression:
+            self.data_fileobj = tempfile.TemporaryFile()
+        else:
+            self.data_fileobj = fileobj
         self.entries = []
         self.signature_offset = 8
         self.additional_offset = None
@@ -89,6 +100,11 @@ class MarWriter(object):
             fake_sigs = self.dummy_signatures()
             self.write_signatures(fake_sigs)
             self.write_additional(productversion, channel)
+
+        # Sync up the file pointer positions
+        if xz_compression:
+            self.data_offset = self.fileobj.tell()
+            self.data_fileobj.seek(self.data_offset)
 
     def flush(self):
         """Flush data written to our file object."""
@@ -157,12 +173,12 @@ class MarWriter(object):
             compress (obj): instance of Compression. defaults to
                             Compression.bz2.
         """
-        self.fileobj.seek(self.last_offset)
+        self.data_fileobj.seek(self.last_offset)
 
-        f = fileobj
+        f = file_iter(fileobj)
         if compress == Compression.bz2:
             f = bz2_compress_stream(f)
-        size = write_to_file(f, self.fileobj)
+        size = write_to_file(f, self.data_fileobj)
 
         # On Windows, convert \ to /
         # very difficult to mock this out for coverage on linux
@@ -312,6 +328,14 @@ class MarWriter(object):
         The MAR header, index and signatures need to be updated once we've
         finished adding all the files.
         """
+        if self.xz_compression:
+            # Compress the data, and write to the real file
+            self.data_fileobj.seek(self.data_offset)
+            self.fileobj.seek(self.data_offset)
+            write_to_file(xz_compress_stream(file_iter(self.data_fileobj)), self.fileobj)
+            self.last_offset = self.fileobj.tell()
+            self.data_fileobj.close()
+
         # Update the last_offset in the mar header
         self.write_header()
         # Write out the index of contents
@@ -321,4 +345,3 @@ class MarWriter(object):
             # Refresh the signature
             sigs = self.calculate_signatures()
             self.write_signatures(sigs)
-            return

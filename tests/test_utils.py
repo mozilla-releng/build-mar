@@ -12,6 +12,7 @@ from mardor.utils import auto_decompress_stream
 from mardor.utils import bz2_compress_stream
 from mardor.utils import bz2_decompress_stream
 from mardor.utils import mkdir
+from mardor.utils import safejoin
 from mardor.utils import takeexactly
 
 
@@ -81,3 +82,9 @@ def test_mkdir_existingfile(tmpdir):
     d.write('helloworld')
     with pytest.raises(OSError):
         mkdir(str(d))
+
+
+def test_safejoin():
+    assert safejoin('/path/to/t', 'tnew/foo/bar') == '/path/to/t/tnew/foo/bar'
+    with pytest.raises(ValueError):
+        safejoin('/path/to/t', '../tnew/foo/bar')
