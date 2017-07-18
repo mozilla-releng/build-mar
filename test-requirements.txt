@@ -9,20 +9,20 @@ asn1crypto==0.22.0
 cffi==1.10.0
 click==6.7
 construct==2.8.12
-coverage==4.3.4           # via pytest-cov
-cryptography==1.8.1
+coverage==4.4.1           # via pytest-cov
+cryptography==2.0
 enum34==1.1.6
-hypothesis==3.8.2
+hypothesis==3.13.0
 idna==2.5
 mock==2.0.0
 packaging==16.8
-pbr==3.0.0                # via mock
-py==1.4.33                # via pytest
-pycparser==2.17
+pbr==3.1.1                # via mock
+py==1.4.34                # via pytest
+pycparser==2.18
 pyparsing==2.2.0
-pytest-cov==2.4.0
+pytest-cov==2.5.1
 pytest-travis-fold==1.2.0
-pytest==3.0.7
+pytest==3.1.3
 six==1.10.0
 
 # The following packages are considered to be unsafe in a requirements file:
