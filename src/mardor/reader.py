@@ -160,7 +160,7 @@ class MarReader(object):
             True if the MAR file's signature matches its contents
             False otherwise; this includes cases where there is no signature.
         """
-        if not self.mardata.signatures:
+        if not self.mardata.signatures or not self.mardata.signatures.sigs:
             # This MAR file can't be verified since it has no signatures
             return False
 

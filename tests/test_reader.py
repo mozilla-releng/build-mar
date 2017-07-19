@@ -47,6 +47,11 @@ def test_verify_nosig(mar_cu):
     with MarReader(mar_cu.open('rb')) as m:
         assert not m.verify(pubkey)
 
+def test_verify_nosig_extra(mar_cue):
+    pubkey = open(TEST_PUBKEY, 'rb').read()
+    with MarReader(mar_cue.open('rb')) as m:
+        assert not m.verify(pubkey)
+
 
 def test_verify_wrongkey():
     private, public = make_rsa_keypair(2048)
