@@ -66,6 +66,41 @@ Package for handling Mozilla Archive files. MAR file format is documented at htt
 
 * Free software: MPL 2.0 license
 
+Usage
+=====
+
+To list the contents of a mar::
+
+    mar -t complete.mar
+
+To list the contents of a mar with extra detail::
+
+    mar -T complete.mar
+
+To extract a mar::
+
+    mar -x complete.mar
+
+To extract, and uncompress a bz2 compressed mar::
+
+    mar -j -x complete.mar
+
+To verify a mar::
+
+    mar -k :mozilla-nightly -v complete.mar
+
+To create a mar, using bz2 compression::
+
+    mar -j -c complete.mar *
+
+To create a mar, using xz compression::
+
+    mar -J -c complete.mar *
+
+To create a signed mar::
+
+    mar -J -c complete.mar -k private.key -H nightly -V 123 tests
+
 Installation
 ============
 
