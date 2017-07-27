@@ -145,10 +145,13 @@ def xz_compress_stream(src):
     Yields:
         blocks of compressed data
     """
-    compressor = lzma.LZMACompressor(filters=[
-        {"id": lzma.FILTER_X86},
-        {"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME},
-    ])
+    compressor = lzma.LZMACompressor(
+        check=lzma.CHECK_CRC64,
+        filters=[
+            {"id": lzma.FILTER_X86},
+            {"id": lzma.FILTER_LZMA2,
+             "preset": lzma.PRESET_DEFAULT},
+        ])
     for block in src:
         encoded = compressor.compress(block)
         if encoded:
