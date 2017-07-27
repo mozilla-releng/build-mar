@@ -1,4 +1,5 @@
 cryptography
 construct
-enum34
+enum34; python_version < '3.4'
 click
+backports.lzma; python_version < '3.3'

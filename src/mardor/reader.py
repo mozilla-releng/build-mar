@@ -8,6 +8,7 @@ verify MAR files.
 """
 
 import os
+import tempfile
 from enum import Enum
 
 from cryptography.exceptions import InvalidSignature
@@ -24,6 +25,7 @@ from mardor.utils import mkdir
 from mardor.utils import safejoin
 from mardor.utils import takeexactly
 from mardor.utils import write_to_file
+from mardor.utils import xz_decompress_stream
 
 
 class Decompression(Enum):
@@ -33,11 +35,13 @@ class Decompression(Enum):
     none: don't decompress
     auto: automatically decompress depending on specific format
     bz2: decompress using bz2
+    xz: decompress using xz
     """
 
     none = None
     auto = 1
     bz2 = 2
+    xz = 3
 
 
 class MarReader(object):
@@ -59,8 +63,37 @@ class MarReader(object):
                 the MAR data will be read from. This object must also be
                 seekable (i.e.  support .seek() and .tell()).
         """
-        self.fileobj = fileobj
-        self.mardata = mar.parse_stream(self.fileobj)
+        self._raw_fileobj = fileobj
+        self._decompressed_fileobj = None
+
+        self.mardata = mar.parse_stream(self._raw_fileobj)
+        self.is_compressed = self.mardata.is_compressed
+
+    @property
+    def fileobj(self):
+        if not self.is_compressed:
+            return self._raw_fileobj
+
+        if not self._decompressed_fileobj:
+            self._decompressed_fileobj = self.decompress()
+        return self._decompressed_fileobj
+
+    def decompress(self):
+        """Decompress the compressed data section of the mar file
+        Return a fileobject pointing to the decompressed data.
+        """
+        dst = tempfile.TemporaryFile()
+        dst.seek(self.mardata.data_offset)
+
+        self._raw_fileobj.seek(self.mardata.data_offset)
+
+        stream = takeexactly(file_iter(self._raw_fileobj), self.mardata.data_length)
+        stream = xz_decompress_stream(stream)
+
+        write_to_file(stream, dst)
+
+        dst.seek(0)
+        return dst
 
     def __enter__(self):
         """Support the context manager protocol."""
@@ -91,6 +124,9 @@ class MarReader(object):
             stream = auto_decompress_stream(stream)
         elif decompress == Decompression.bz2:
             stream = bz2_decompress_stream(stream)
+        elif decompress == Decompression.xz:
+            # Nothing to do here since we've already decompressed the XZ chunk
+            pass
 
         for block in stream:
             yield block
@@ -124,7 +160,7 @@ class MarReader(object):
             True if the MAR file's signature matches its contents
             False otherwise; this includes cases where there is no signature.
         """
-        if not self.mardata.signatures:
+        if not self.mardata.signatures or not self.mardata.signatures.sigs:
             # This MAR file can't be verified since it has no signatures
             return False
 

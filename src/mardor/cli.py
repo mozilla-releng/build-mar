@@ -44,8 +44,10 @@ def build_argparser():
     verify_group.add_argument("-v", "--verify", metavar="MARFILE",
                               help="verify the marfile")
 
-    parser.add_argument("-j", "--bzip2", action="store_true", dest="bz2",
-                        help="compress/decompress members with BZ2")
+    parser.add_argument("-j", "--bzip2", action="store_const", dest="compression",
+                        const="bz2", help="compress/decompress members with BZ2")
+    parser.add_argument("-J", "--xz", action="store_const", dest="compression",
+                        const="xz", help="compress/decompress archive with XZ")
 
     parser.add_argument("-k", "--keyfiles", dest="keyfiles", action='append',
                         help="sign/verify with given key(s)")
@@ -104,8 +106,13 @@ def do_list(marfile, detailed=False):
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
             if detailed:
+                if m.mardata.is_compressed:
+                    yield "MAR data is XZ compressed"
                 if m.mardata.signatures:
                     yield "Signature block found with {} signature".format(m.mardata.signatures.count)
+                    for s in m.mardata.signatures.sigs:
+                        yield "- Signature {} size {}".format(s.algorithm_id, s.size)
+                    yield ""
                 if m.mardata.additional:
                     yield "{} additional block found:".format(len(m.mardata.additional.sections))
                     for s in m.mardata.additional.sections:
@@ -124,10 +131,12 @@ def do_list(marfile, detailed=False):
 def do_create(marfile, files, compress, productversion=None, channel=None,
               signing_key=None, signing_algorithm=None):
     """Create a new MAR file."""
+    xz_compression = compress == mardor.writer.Compression.xz
     with open(marfile, 'w+b') as f:
         with MarWriter(f, productversion=productversion, channel=channel,
                        signing_key=signing_key,
-                       signing_algorithm=signing_algorithm) as m:
+                       signing_algorithm=signing_algorithm,
+                       xz_compression=xz_compression) as m:
             for f in files:
                 m.add(f, compress=compress)
 
@@ -152,7 +161,13 @@ def main(argv=None):
 
     if args.extract:
         marfile = os.path.abspath(args.extract)
-        decompress = mardor.reader.Decompression.bz2 if args.bz2 else None
+        if args.compression == 'bz2':
+            decompress = mardor.reader.Decompression.bz2
+        elif args.compression == 'xz':
+            decompress = mardor.reader.Decompression.xz
+        else:
+            decompress = None
+
         if args.chdir:
             os.chdir(args.chdir)
         do_extract(marfile, os.getcwd(), decompress)
@@ -172,7 +187,13 @@ def main(argv=None):
         print("\n".join(do_list(args.list_detailed, detailed=True)))
 
     elif args.create:
-        compress = mardor.writer.Compression.bz2 if args.bz2 else None
+        if args.compression == 'bz2':
+            compress = mardor.writer.Compression.bz2
+        elif args.compression == 'xz':
+            compress = mardor.writer.Compression.xz
+        else:
+            compress = None
+
         marfile = os.path.abspath(args.create)
         if args.keyfiles:
             signing_key = open(args.keyfiles[0], 'rb').read()

@@ -7,6 +7,13 @@ import os
 from functools import partial
 from itertools import chain
 
+import six
+
+if six.PY2:
+    from backports import lzma
+else:
+    import lzma
+
 
 def mkdir(path):
     """Make a directory and its parents.
@@ -129,6 +136,48 @@ def bz2_decompress_stream(src):
             yield decoded
 
 
+def xz_compress_stream(src):
+    """Compress data from `src`.
+
+    Args:
+        src (iterable): iterable that yields blocks of data to compress
+
+    Yields:
+        blocks of compressed data
+    """
+    compressor = lzma.LZMACompressor(
+        check=lzma.CHECK_CRC64,
+        filters=[
+            {"id": lzma.FILTER_X86},
+            {"id": lzma.FILTER_LZMA2,
+             "preset": lzma.PRESET_DEFAULT},
+        ])
+    for block in src:
+        encoded = compressor.compress(block)
+        if encoded:
+            yield encoded
+    yield compressor.flush()
+
+
+def xz_decompress_stream(src):
+    """Decompress data from `src`.
+
+    Args:
+        src (iterable): iterable that yields blocks of compressed data
+
+    Yields:
+        blocks of uncompressed data
+    """
+    dec = lzma.LZMADecompressor()
+    for block in src:
+        decoded = dec.decompress(block)
+        if decoded:
+            yield decoded
+
+    if dec.unused_data:
+        raise IOError('Read unused data at end of compressed stream')
+
+
 def auto_decompress_stream(src):
     """Decompress data from `src` if required.
 
@@ -152,6 +201,20 @@ def auto_decompress_stream(src):
         yield block
 
 
+def path_is_inside(path, dirname):
+    """Returns True if path is under dirname"""
+    path = os.path.abspath(path)
+    dirname = os.path.abspath(dirname)
+    while len(path) >= len(dirname):
+        if path == dirname:
+            return True
+        newpath = os.path.dirname(path)
+        if newpath == path:
+            return False
+        path = newpath
+    return False
+
+
 def safejoin(base, *elements):
     """Safely joins paths together.
 
@@ -169,6 +232,6 @@ def safejoin(base, *elements):
     base = os.path.abspath(base)
     path = os.path.join(base, *elements)
     path = os.path.normpath(path)
-    if not path.startswith(base):
-        raise ValueError('result is outside of base')
+    if not path_is_inside(path, base):
+        raise ValueError('target path is outside of the base path')
     return path

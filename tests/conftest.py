@@ -16,6 +16,20 @@ def mar_cu(tmpdir_factory):
                 m.add('message.txt', compress='bz2')
     return mar_p
 
+@pytest.fixture(scope='session')
+def mar_cue(tmpdir_factory):
+    """Compressed and unsigned MAR with extra information"""
+    tmpdir = tmpdir_factory.mktemp('data')
+    message_p = tmpdir.join('message.txt')
+    message_p.write('hello world')
+    mar_p = tmpdir.join('test_cue.mar')
+    with mar_p.open('w+b') as f:
+        with MarWriter(f, productversion='99.0',
+                      channel='1') as m:
+            with tmpdir.as_cwd():
+                m.add('message.txt', compress='bz2')
+    return mar_p
+
 
 @pytest.fixture(scope='session')
 def mar_uu(tmpdir_factory):
