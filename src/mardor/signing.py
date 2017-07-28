@@ -2,8 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Signing, verification and key support for MAR files."""
-from enum import IntEnum
-
 from construct import Int32ub
 from construct import Int64ub
 from cryptography.hazmat.backends import default_backend
@@ -14,17 +12,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from mardor.format import sigs_header
 from mardor.utils import file_iter
-
-
-class SigningAlgo(IntEnum):
-    """
-    Enum representing supported signing algorithms.
-
-    SHA1: RSA-PKCS1-SHA1 using 2048 bit key
-    SHA384: RSA-PKCS1-SHA384 using 4096 bit key
-    """
-    SHA1 = 1
-    SHA384 = 2
 
 
 def get_publickey(keydata):

@@ -9,11 +9,10 @@ from pytest import raises
 
 from mardor import cli
 from mardor import mozilla
-from mardor.reader import Decompression
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
 
-TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
+TEST_MAR = os.path.join(os.path.dirname(__file__), 'test-bz2.mar')
 
 
 @fixture
@@ -28,7 +27,7 @@ def test_argparser(parser):
 
 
 def test_extract(tmpdir):
-    cli.do_extract(TEST_MAR, tmpdir, Decompression.auto)
+    cli.do_extract(TEST_MAR, tmpdir, 'auto')
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
             b'pref("app.update.channel", "release");\n')
 
@@ -71,7 +70,7 @@ def test_list_noextra(tmpdir):
     tmpdir.join('hello.txt').write('hello world')
     tmpdir.join('hello.txt').chmod(0o666)
     with tmpdir.as_cwd():
-        cli.do_create(str(test_mar), ['hello.txt'], 'bz2')
+        cli.do_create(str(test_mar), ['hello.txt'], None)
 
     lines = list(cli.do_list(str(test_mar)))
     assert lines == [

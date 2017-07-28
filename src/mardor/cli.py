@@ -12,7 +12,6 @@ from argparse import ArgumentParser
 
 import mardor.mozilla
 from mardor.reader import MarReader
-from mardor.signing import SigningAlgo
 from mardor.signing import get_keysize
 from mardor.writer import MarWriter
 
@@ -48,6 +47,8 @@ def build_argparser():
                         const="bz2", help="compress/decompress members with BZ2")
     parser.add_argument("-J", "--xz", action="store_const", dest="compression",
                         const="xz", help="compress/decompress archive with XZ")
+    parser.add_argument("--auto", action="store_const", dest="compression",
+                        const="auto", help="automatically decompress contents")
 
     parser.add_argument("-k", "--keyfiles", dest="keyfiles", action='append',
                         help="sign/verify with given key(s)")
@@ -106,8 +107,6 @@ def do_list(marfile, detailed=False):
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
             if detailed:
-                if m.mardata.is_compressed:
-                    yield "MAR data is XZ compressed"
                 if m.mardata.signatures:
                     yield "Signature block found with {} signature".format(m.mardata.signatures.count)
                     for s in m.mardata.signatures.sigs:
@@ -131,12 +130,11 @@ def do_list(marfile, detailed=False):
 def do_create(marfile, files, compress, productversion=None, channel=None,
               signing_key=None, signing_algorithm=None):
     """Create a new MAR file."""
-    xz_compression = compress == mardor.writer.Compression.xz
     with open(marfile, 'w+b') as f:
         with MarWriter(f, productversion=productversion, channel=channel,
                        signing_key=signing_key,
                        signing_algorithm=signing_algorithm,
-                       xz_compression=xz_compression) as m:
+                       ) as m:
             for f in files:
                 m.add(f, compress=compress)
 
@@ -160,17 +158,13 @@ def main(argv=None):
         parser.error("Must specify a key file when verifying")
 
     if args.extract:
-        marfile = os.path.abspath(args.extract)
-        if args.compression == 'bz2':
-            decompress = mardor.reader.Decompression.bz2
-        elif args.compression == 'xz':
-            decompress = mardor.reader.Decompression.xz
-        else:
-            decompress = None
+        if args.compression not in (None, 'bz2', 'xz', 'auto'):
+            parser.error('Unsupported compression type')
 
+        marfile = os.path.abspath(args.extract)
         if args.chdir:
             os.chdir(args.chdir)
-        do_extract(marfile, os.getcwd(), decompress)
+        do_extract(marfile, os.getcwd(), args.compression)
 
     elif args.verify:
         if do_verify(args.verify, args.keyfiles):
@@ -187,21 +181,16 @@ def main(argv=None):
         print("\n".join(do_list(args.list_detailed, detailed=True)))
 
     elif args.create:
-        if args.compression == 'bz2':
-            compress = mardor.writer.Compression.bz2
-        elif args.compression == 'xz':
-            compress = mardor.writer.Compression.xz
-        else:
-            compress = None
-
+        if args.compression not in (None, 'bz2', 'xz'):
+            parser.error('Unsupported compression type')
         marfile = os.path.abspath(args.create)
         if args.keyfiles:
             signing_key = open(args.keyfiles[0], 'rb').read()
             bits = get_keysize(signing_key)
             if bits == 2048:
-                signing_algorithm = SigningAlgo.SHA1
+                signing_algorithm = 'sha1'
             elif bits == 4096:
-                signing_algorithm = SigningAlgo.SHA384
+                signing_algorithm = 'sha384'
             else:
                 parser.error("Unsupported key size {} from key {}".format(bits, args.keyfiles[0]))
 
@@ -212,7 +201,7 @@ def main(argv=None):
 
         if args.chdir:
             os.chdir(args.chdir)
-        do_create(marfile, args.files, compress,
+        do_create(marfile, args.files, args.compression,
                   productversion=args.productversion, channel=args.channel,
                   signing_key=signing_key, signing_algorithm=signing_algorithm)
 

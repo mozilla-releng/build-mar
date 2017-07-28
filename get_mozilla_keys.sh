@@ -11,7 +11,6 @@ function get_key() {
     echo -n "$name = b\"\"\""
     curl -s $url | openssl x509 -inform DER -pubkey -noout | head -c -1
     echo '"""'
-    echo
 }
 
 (
@@ -20,11 +19,16 @@ echo "# Automatically generated - do not edit!"
 echo "#"
 echo "# flake8: noqa"
 get_key "release_primary.der" "release1"
+echo
 get_key "release_secondary.der" "release2"
+echo
 
 get_key "nightly_aurora_level3_primary.der" "nightly1"
+echo
 get_key "nightly_aurora_level3_secondary.der" "nightly2"
+echo
 
 get_key "dep1.der" "dep1"
+echo
 get_key "dep2.der" "dep2"
-) > mardor/mozilla.py
+) > src/mardor/mozilla.py

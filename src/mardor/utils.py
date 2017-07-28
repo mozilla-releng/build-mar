@@ -178,6 +178,22 @@ def xz_decompress_stream(src):
         raise IOError('Read unused data at end of compressed stream')
 
 
+def guess_compression(block):
+    """Returns the compression type of the data.
+
+    Args:
+        block (bytes): block of data to identify
+
+    Returns:
+        One of None, 'bz2', or 'xz'
+    """
+    if block.startswith(b'BZh'):
+        return 'bz2'
+    elif block.startswith(b'\xfd7zXZ\x00'):
+        return 'xz'
+    return None
+
+
 def auto_decompress_stream(src):
     """Decompress data from `src` if required.
 
@@ -192,8 +208,11 @@ def auto_decompress_stream(src):
         blocks of uncompressed data
     """
     block = next(src)
-    if block.startswith(b'BZh'):
+    compression = guess_compression(block)
+    if compression == 'bz2':
         src = bz2_decompress_stream(chain([block], src))
+    elif compression == 'xz':
+        src = xz_decompress_stream(chain([block], src))
     else:
         src = chain([block], src)
 

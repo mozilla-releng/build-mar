@@ -6,14 +6,11 @@
 This module provides the MarWriter class which is used to write MAR files.
 """
 import os
-import tempfile
-from enum import Enum
 
 from mardor.format import extras_header
 from mardor.format import index_header
 from mardor.format import mar_header
 from mardor.format import sigs_header
-from mardor.signing import SigningAlgo
 from mardor.signing import get_signature_data
 from mardor.signing import make_signer_v1
 from mardor.signing import make_signer_v2
@@ -21,20 +18,6 @@ from mardor.utils import bz2_compress_stream
 from mardor.utils import file_iter
 from mardor.utils import write_to_file
 from mardor.utils import xz_compress_stream
-
-
-class Compression(Enum):
-    """
-    Enum representing types of compression we can do.
-
-    none: no compression
-    bz2: bz2 compression
-    xz: xz compression
-    """
-
-    none = 0
-    bz2 = 1
-    xz = 2
 
 
 class MarWriter(object):
@@ -48,8 +31,7 @@ class MarWriter(object):
     def __init__(self, fileobj,
                  productversion=None, channel=None,
                  signing_key=None,
-                 signing_algorithm=SigningAlgo.SHA384,
-                 xz_compression=False,
+                 signing_algorithm=None,
                  ):
         """Initialize a new MarWriter object.
 
@@ -66,14 +48,10 @@ class MarWriter(object):
             channel (str): channel name to encode in the MAR header
                 productversion and channel must be specified together
             signing_key (str): PEM encoded private key used for signing
-            signing_algorithm (SigningAlgo):
+            signing_algorithm (str): one of None, 'sha1', 'sha384'
         """
-        self.xz_compression = xz_compression
         self.fileobj = fileobj
-        if xz_compression:
-            self.data_fileobj = tempfile.TemporaryFile()
-        else:
-            self.data_fileobj = fileobj
+        self.data_fileobj = fileobj
         self.entries = []
         self.signature_offset = 8
         self.additional_offset = None
@@ -85,6 +63,8 @@ class MarWriter(object):
         self.productversion = productversion
         self.channel = channel
         self.signing_key = signing_key
+        if signing_algorithm not in (None, 'sha1', 'sha384'):
+            raise ValueError('Unsupported signing algorithm: {}'.format(signing_algorithm))
         self.signing_algorithm = signing_algorithm
 
         if productversion and channel:
@@ -100,11 +80,6 @@ class MarWriter(object):
             fake_sigs = self.dummy_signatures()
             self.write_signatures(fake_sigs)
             self.write_additional(productversion, channel)
-
-        # Sync up the file pointer positions
-        if xz_compression:
-            self.data_offset = self.fileobj.tell()
-            self.data_fileobj.seek(self.data_offset)
 
     def flush(self):
         """Flush data written to our file object."""
@@ -132,7 +107,7 @@ class MarWriter(object):
         self.finish()
         self.flush()
 
-    def add(self, path, compress=Compression.bz2):
+    def add(self, path, compress=None):
         """Add `path` to the MAR file.
 
         If `path` is a file, it will be added directly.
@@ -142,8 +117,7 @@ class MarWriter(object):
         Args:
             path (str): path to file or directory on disk to add to this MAR
                 file
-            compress (obj): instance of Compression. defaults to
-                            Compression.bz2.
+            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
         """
         if os.path.isdir(path):
             self.add_dir(path, compress)
@@ -155,8 +129,7 @@ class MarWriter(object):
 
         Args:
             path (str): path to directory to add to this MAR file
-            compress (obj): instance of Compression. defaults to
-                            Compression.bz2.
+            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
         """
         if not os.path.isdir(path):
             raise ValueError('{} is not a directory'.format(path))
@@ -170,14 +143,20 @@ class MarWriter(object):
         Args:
             fileobj (file-like object): open file object data will be read from
             path (str): name of this file in the MAR file
-            compress (obj): instance of Compression. defaults to
-                            Compression.bz2.
+            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
         """
         self.data_fileobj.seek(self.last_offset)
 
         f = file_iter(fileobj)
-        if compress == Compression.bz2:
+        if compress == 'bz2':
             f = bz2_compress_stream(f)
+        elif compress == 'xz':
+            f = xz_compress_stream(f)
+        elif compress is None:
+            pass
+        else:
+            raise ValueError('Unsupported compression type: {}'.format(compress))
+
         size = write_to_file(f, self.data_fileobj)
 
         # On Windows, convert \ to /
@@ -199,8 +178,7 @@ class MarWriter(object):
 
         Args:
             path (str): path to a file to add to this MAR file.
-            compress (obj): instance of Compression. defaults to
-                            Compression.bz2.
+            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
         """
         if not os.path.isfile(path):
             raise ValueError('{} is not a file'.format(path))
@@ -227,11 +205,11 @@ class MarWriter(object):
             signing key was provided.
         """
         signers = []
-        if self.signing_key and self.signing_algorithm == SigningAlgo.SHA1:
+        if self.signing_key and self.signing_algorithm == 'sha1':
             # Algorithm 1: 2048 RSA key w/ SHA1 hash
             signer = make_signer_v1(self.signing_key)
             signers.append((1, signer))
-        elif self.signing_key and self.signing_algorithm == SigningAlgo.SHA384:
+        elif self.signing_key and self.signing_algorithm == 'sha384':
             # Algorithm 2: 4096 RSA key w/ SHA384 hash
             signer = make_signer_v2(self.signing_key)
             signers.append((2, signer))
@@ -328,14 +306,6 @@ class MarWriter(object):
         The MAR header, index and signatures need to be updated once we've
         finished adding all the files.
         """
-        if self.xz_compression:
-            # Compress the data, and write to the real file
-            self.data_fileobj.seek(self.data_offset)
-            self.fileobj.seek(self.data_offset)
-            write_to_file(xz_compress_stream(file_iter(self.data_fileobj)), self.fileobj)
-            self.last_offset = self.fileobj.tell()
-            self.data_fileobj.close()
-
         # Update the last_offset in the mar header
         self.write_header()
         # Write out the index of contents
