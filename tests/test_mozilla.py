@@ -9,7 +9,7 @@ from mardor.mozilla import release2
 from mardor.reader import MarReader
 
 
-def test_testmar_sig():
-    TEST_MAR = os.path.join(os.path.dirname(__file__), 'test.mar')
+def test_testmar_sig_bz2():
+    TEST_MAR = os.path.join(os.path.dirname(__file__), 'test-bz2.mar')
     with MarReader(open(TEST_MAR, 'rb')) as m:
         assert m.verify(release1)

@@ -111,5 +111,4 @@ mar = "mar" / Struct(
     "data_offset" / Computed(lambda ctx: ctx.index.entries[0].offset),
     "data_length" / Computed(this.header.index_offset - this.data_offset),
     "data_header" / Pointer(this.data_offset, Bytes(6)),
-    "is_compressed" / Computed(this.data_header == b'\xfd7zXZ\x00'),
 )

@@ -84,7 +84,7 @@ def test_writer_compressed(tmpdir):
     with mar_p.open('wb') as f:
         with MarWriter(f) as m:
             with tmpdir.as_cwd():
-                m.add('message.txt')
+                m.add('message.txt', compress='bz2')
 
     assert mar_p.size() > 0
 
@@ -136,8 +136,8 @@ def test_bad_parameters(tmpdir):
 
 
 @pytest.mark.parametrize('key_size, algo_id', [
-    (2048, 1),
-    (4096, 2),])
+    (2048, 'sha1'),
+    (4096, 'sha384'),])
 def test_signing(tmpdir, key_size, algo_id):
     private_key, public_key = make_rsa_keypair(key_size)
 
@@ -191,15 +191,14 @@ def test_xz_writer(tmpdir):
     message_p.write('hello world')
     mar_p = tmpdir.join('test.mar')
     with mar_p.open('wb') as f:
-        with MarWriter(f, xz_compression=True) as m:
+        with MarWriter(f) as m:
             with tmpdir.as_cwd():
-                m.add('message.txt')
+                m.add('message.txt', compress='xz')
 
     assert mar_p.size() > 0
 
     with mar_p.open('rb') as f:
         with MarReader(f) as m:
-            assert m.mardata.is_compressed
             assert m.mardata.additional is None
             assert m.mardata.signatures is None
             assert len(m.mardata.index.entries) == 1

@@ -17,6 +17,7 @@ include LICENSE
 include README.rst
 
 include get_mozilla_keys.sh
+include update-requirements.sh
 include requirements.txt
 include requirements.in
 include test-requirements.txt

@@ -8,40 +8,22 @@ verify MAR files.
 """
 
 import os
-import tempfile
-from enum import Enum
 
 from cryptography.exceptions import InvalidSignature
 
 from mardor.format import mar
-from mardor.signing import SigningAlgo
 from mardor.signing import get_signature_data
 from mardor.signing import make_verifier_v1
 from mardor.signing import make_verifier_v2
 from mardor.utils import auto_decompress_stream
 from mardor.utils import bz2_decompress_stream
 from mardor.utils import file_iter
+from mardor.utils import guess_compression
 from mardor.utils import mkdir
 from mardor.utils import safejoin
 from mardor.utils import takeexactly
 from mardor.utils import write_to_file
 from mardor.utils import xz_decompress_stream
-
-
-class Decompression(Enum):
-    """
-    Enum representing different decompression options.
-
-    none: don't decompress
-    auto: automatically decompress depending on specific format
-    bz2: decompress using bz2
-    xz: decompress using xz
-    """
-
-    none = None
-    auto = 1
-    bz2 = 2
-    xz = 3
 
 
 class MarReader(object):
@@ -63,37 +45,9 @@ class MarReader(object):
                 the MAR data will be read from. This object must also be
                 seekable (i.e.  support .seek() and .tell()).
         """
-        self._raw_fileobj = fileobj
-        self._decompressed_fileobj = None
+        self.fileobj = fileobj
 
-        self.mardata = mar.parse_stream(self._raw_fileobj)
-        self.is_compressed = self.mardata.is_compressed
-
-    @property
-    def fileobj(self):
-        if not self.is_compressed:
-            return self._raw_fileobj
-
-        if not self._decompressed_fileobj:
-            self._decompressed_fileobj = self.decompress()
-        return self._decompressed_fileobj
-
-    def decompress(self):
-        """Decompress the compressed data section of the mar file
-        Return a fileobject pointing to the decompressed data.
-        """
-        dst = tempfile.TemporaryFile()
-        dst.seek(self.mardata.data_offset)
-
-        self._raw_fileobj.seek(self.mardata.data_offset)
-
-        stream = takeexactly(file_iter(self._raw_fileobj), self.mardata.data_length)
-        stream = xz_decompress_stream(stream)
-
-        write_to_file(stream, dst)
-
-        dst.seek(0)
-        return dst
+        self.mardata = mar.parse_stream(self.fileobj)
 
     def __enter__(self):
         """Support the context manager protocol."""
@@ -103,16 +57,53 @@ class MarReader(object):
         """Support the context manager protocol."""
         pass
 
-    def extract_entry(self, e, decompress=Decompression.auto):
+    @property
+    def compression_type(self):
+        """Returns the latest compresion type used in this MAR.
+
+        Returns:
+            One of None, 'bz2', or 'xz'
+        """
+        best_compression = None
+        for e in self.mardata.index.entries:
+            self.fileobj.seek(e.offset)
+            magic = self.fileobj.read(10)
+            compression = guess_compression(magic)
+            if compression == 'xz':
+                best_compression = 'xz'
+                break
+            elif compression == 'bz2' and best_compression is None:
+                best_compression = 'bz2'
+        return best_compression
+
+    @property
+    def signature_type(self):
+        """Returns the signature type used in this MAR.
+
+        Returns:
+            One of None, 'sha1', or 'sha384'
+        """
+        if not self.mardata.signatures:
+            return None
+
+        for sig in self.mardata.signatures.sigs:
+            if sig.algorithm_id == 1:
+                return 'sha1'
+            elif sig.algorithm_id == 2:
+                return 'sha384'
+        else:
+            return None
+
+    def extract_entry(self, e, decompress='auto'):
         """Yield blocks of data for this entry from this MAR file.
 
         Args:
             e (:obj:`mardor.format.index_entry`): An index_entry object that
                 refers to this file's size and offset inside the MAR file.
             path (str): Where on disk to extract this file to.
-            decompress (obj, optional): Controls whether files are decompressed
-                when extracted. Must be an instance of Decompression. defaults
-                to Decompression.auto
+            decompress (str, optional): Controls whether files are decompressed
+                when extracted. Must be one of None, 'auto', 'bz2', or 'xz'.
+                Defaults to 'auto'
 
         Yields:
             Blocks of data for `e`
@@ -120,18 +111,21 @@ class MarReader(object):
         self.fileobj.seek(e.offset)
         stream = file_iter(self.fileobj)
         stream = takeexactly(stream, e.size)
-        if decompress == Decompression.auto:
+        if decompress == 'auto':
             stream = auto_decompress_stream(stream)
-        elif decompress == Decompression.bz2:
+        elif decompress == 'bz2':
             stream = bz2_decompress_stream(stream)
-        elif decompress == Decompression.xz:
-            # Nothing to do here since we've already decompressed the XZ chunk
+        elif decompress == 'xz':
+            stream = xz_decompress_stream(stream)
+        elif decompress is None:
             pass
+        else:
+            raise ValueError("Unsupported decompression type: {}".format(decompress))
 
         for block in stream:
             yield block
 
-    def extract(self, destdir, decompress=Decompression.auto):
+    def extract(self, destdir, decompress='auto'):
         """Extract the entire MAR file into a directory.
 
         Args:
@@ -166,10 +160,10 @@ class MarReader(object):
 
         verifiers = []
         for sig in self.mardata.signatures.sigs:
-            if sig.algorithm_id == SigningAlgo.SHA1:
+            if sig.algorithm_id == 1:
                 verifier = make_verifier_v1(verify_key, sig.signature)
                 verifiers.append(verifier)
-            elif sig.algorithm_id == SigningAlgo.SHA384:
+            elif sig.algorithm_id == 2:
                 verifier = make_verifier_v2(verify_key, sig.signature)
                 verifiers.append(verifier)
             else:
