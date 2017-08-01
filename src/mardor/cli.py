@@ -71,30 +71,35 @@ def do_extract(marfile, destdir, decompress):
             m.extract(str(destdir), decompress=decompress)
 
 
-def do_verify(marfile, keyfiles):
-    """Verify the MAR file."""
+def get_keys(keyfiles, signature_type):
+    builtin_keys = {
+        ('release', 'sha1'): [mardor.mozilla.release1_sha1, mardor.mozilla.release2_sha1],
+        ('release', 'sha384'): [mardor.mozilla.release1_sha384, mardor.mozilla.release2_sha384],
+        ('nightly', 'sha1'): [mardor.mozilla.nightly1_sha1, mardor.mozilla.nightly2_sha1],
+        ('nightly', 'sha384'): [mardor.mozilla.nightly1_sha384, mardor.mozilla.nightly2_sha384],
+        ('dep', 'sha1'): [mardor.mozilla.dep1_sha1, mardor.mozilla.dep2_sha1],
+        ('dep', 'sha384'): [mardor.mozilla.dep1_sha384, mardor.mozilla.dep2_sha384],
+    }
     keys = []
     for keyfile in keyfiles:
         if keyfile.startswith(':mozilla-'):
             name = keyfile.split(':mozilla-')[1]
-            if name == 'release':
-                keys.append(mardor.mozilla.release1)
-                keys.append(mardor.mozilla.release2)
-            elif name == 'nightly':
-                keys.append(mardor.mozilla.nightly1)
-                keys.append(mardor.mozilla.nightly2)
-            elif name == 'dep':
-                keys.append(mardor.mozilla.dep1)
-                keys.append(mardor.mozilla.dep2)
-            else:
+            try:
+                keys.extend(builtin_keys[name, signature_type])
+            except KeyError:
                 raise ValueError('Invalid internal key name: {}'
                                  .format(keyfile))
         else:
             key = open(keyfile, 'rb').read()
             keys.append(key)
+    return keys
 
+
+def do_verify(marfile, keyfiles):
+    """Verify the MAR file."""
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
+            keys = get_keys(keyfiles, m.signature_type)
             return any(m.verify(key) for key in keys)
 
 
