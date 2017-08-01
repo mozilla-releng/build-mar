@@ -40,6 +40,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+.hypothesis/
 
 # Translations
 *.mo
@@ -61,3 +62,4 @@ docs/_build/
 
 # Dev env
 logs/*.log
+

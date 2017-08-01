@@ -27,7 +27,7 @@ def read(*names, **kwargs):
 
 setup(
     name='mar',
-    version='2.1.2',
+    version='2.2.1',
     license='MPL 2.0',
     description='Package for handling Mozilla Archive files.',
     long_description='%s\n%s' % (
