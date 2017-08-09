@@ -107,6 +107,10 @@ def do_list(marfile, detailed=False):
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
             if detailed:
+                if m.compression_type:
+                    yield "Compression type: {}".format(m.compression_type)
+                if m.signature_type:
+                    yield "Signature type: {}".format(m.signature_type)
                 if m.mardata.signatures:
                     yield "Signature block found with {} signature".format(m.mardata.signatures.count)
                     for s in m.mardata.signatures.sigs:
