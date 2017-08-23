@@ -137,27 +137,40 @@ class MarWriter(object):
             for f in files:
                 self.add_file(os.path.join(root, f), compress)
 
-    def add_fileobj(self, fileobj, path, compress):
+    def add_fileobj(self, fileobj, path, compress, flags=None):
         """Add the contents of a file object to the MAR file.
 
         Args:
-            fileobj (file-like object): open file object data will be read from
+            fileobj (file-like object): open file object
             path (str): name of this file in the MAR file
             compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            flags (int): permission of this file in the MAR file. Defaults to the permissions of `path`
+        """
+        f = file_iter(fileobj)
+        flags = flags or os.stat(path) & 0o777
+        return self.add_stream(f, path, compress, flags)
+
+    def add_stream(self, stream, path, compress, flags):
+        """Add the contents of an iterable to the MAR file.
+
+        Args:
+            stream (iterable): yields blocks of data
+            path (str): name of this file in the MAR file
+            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            flags (int): permission of this file in the MAR file
         """
         self.data_fileobj.seek(self.last_offset)
 
-        f = file_iter(fileobj)
         if compress == 'bz2':
-            f = bz2_compress_stream(f)
+            stream = bz2_compress_stream(stream)
         elif compress == 'xz':
-            f = xz_compress_stream(f)
+            stream = xz_compress_stream(stream)
         elif compress is None:
             pass
         else:
             raise ValueError('Unsupported compression type: {}'.format(compress))
 
-        size = write_to_file(f, self.data_fileobj)
+        size = write_to_file(stream, self.data_fileobj)
 
         # On Windows, convert \ to /
         # very difficult to mock this out for coverage on linux
@@ -168,7 +181,7 @@ class MarWriter(object):
             name=path,
             offset=self.last_offset,
             size=size,
-            flags=os.stat(path).st_mode & 0o777,
+            flags=flags,
         )
         self.entries.append(e)
         self.last_offset += e['size']
@@ -185,7 +198,8 @@ class MarWriter(object):
         self.fileobj.seek(self.last_offset)
 
         with open(path, 'rb') as f:
-            self.add_fileobj(f, path, compress)
+            flags = os.stat(path).st_mode & 0o777
+            self.add_fileobj(f, path, compress, flags)
 
     def write_header(self):
         """Write the MAR header to the file.
