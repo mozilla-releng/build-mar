@@ -49,7 +49,7 @@ def test_verify(tmpdir):
         cli.do_verify(TEST_MAR, [':mozilla-foo'])
 
     keyfile = tmpdir.join('release.pem')
-    keyfile.write(mozilla.release1)
+    keyfile.write(mozilla.release1_sha1)
     assert cli.do_verify(TEST_MAR, [str(keyfile)])
 
 
