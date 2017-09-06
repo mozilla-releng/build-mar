@@ -19,7 +19,7 @@ from construct import Int32ub
 from construct import Int64ub
 from construct import Padding
 from construct import Pointer
-from construct import Rebuild
+from construct import Prefixed
 from construct import Select
 from construct import Struct
 from construct import len_
@@ -71,8 +71,7 @@ index_entry = "index_entry" / Struct(
 )
 
 index_header = "index_header" / Struct(
-    "size" / Rebuild(Int32ub, len_(this.entries)),
-    "entries" / GreedyRange(index_entry),
+    "entries" / Prefixed(Int32ub, GreedyRange(index_entry)),
 )
 
 
@@ -91,6 +90,8 @@ def _has_sigs(ctx):
         True if the MAR file has a signature section
         False otherwise
     """
+    if not ctx.index.entries:
+        return False
     return min(e.offset for e in ctx.index.entries) > 8
 
 
