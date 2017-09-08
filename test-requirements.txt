@@ -8,12 +8,12 @@ asn1crypto==0.22.0
 backports.lzma==0.0.8 ; python_version < "3.3"
 cffi==1.10.0
 click==6.7
-construct==2.8.12
+construct==2.8.14
 coverage==4.4.1           # via pytest-cov
 cryptography==2.0.3
 enum34==1.1.6
 funcsigs==1.0.2           # via mock
-hypothesis==3.21.0
+hypothesis==3.24.1
 idna==2.6
 ipaddress==1.0.18
 mock==2.0.0
@@ -22,5 +22,5 @@ py==1.4.34                # via pytest
 pycparser==2.18
 pytest-cov==2.5.1
 pytest-travis-fold==1.2.0
-pytest==3.2.1
+pytest==3.2.2
 six==1.10.0
