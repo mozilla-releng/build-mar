@@ -5,6 +5,9 @@ cache:
 environment:
   global:
     WITH_COMPILER: 'cmd /E:ON /V:ON /C .\ci\appveyor-with-compiler.cmd'
+    VSINSTALL: "Visual C++ for Python\\9.0\\VC"
+    #VSINSTALL: "Microsoft Visual Studio 9.0\\VC"
+    MSVC_PLATFORM: x86
   matrix:
     - TOXENV: check
       PYTHON_HOME: C:\Python27
@@ -52,17 +55,37 @@ environment:
 init:
   - ps: echo $env:TOXENV
   - ps: ls C:\Python*
+  - C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\"Visual C++ for Python"\9.0\vcvarsall.bat
 install:
   - python -u ci\appveyor-bootstrap.py
   - '%PYTHON_HOME%\Scripts\virtualenv --version'
   - '%PYTHON_HOME%\Scripts\easy_install --version'
   - '%PYTHON_HOME%\Scripts\pip --version'
   - '%PYTHON_HOME%\Scripts\tox --version'
+  # We will need pexports to make liblzma.lib from liblzma.dll
+  - "curl -L -O https://downloads.sourceforge.net/project/mingw/MinGW/Extension/pexports/pexports-0.47/pexports-0.47-mingw32-bin.tar.xz"
+  - "7z x pexports-0.47-mingw32-bin.tar.xz"
+  - "7z x pexports-0.47-mingw32-bin.tar -oC:/Users/appveyor/"
+
+  # Our big dependency is the XZ Utils C library, thankfully available
+  # precompiled with binaries for 32-bit and 64-bit x86.
+  - "curl -L -O https://tukaani.org/xz/xz-5.2.3-windows.7z"
+  - "7z x xz-5.2.3-windows.7z -oC:/Users/appveyor/"
+  # That created C:/Users/appveyor/include/lzma.h etc.
+  - "md C:\\Users\\appveyor\\lib"
+  - if "%PYTHON_ARCH%"=="32" cp C:/Users/appveyor/bin_i686/liblzma.* C:/Users/appveyor/lib/"
+  - if "%PYTHON_ARCH%"=="64" cp C:/Users/appveyor/bin_x86-64/liblzma.* C:/Users/appveyor/lib/"
+  - C:/Users/appveyor/bin/pexports C:/Users/appveyor/lib/liblzma.dll > C:/Users/appveyor/lib/liblzma.exp"
+  - ps: lib /def:C:/Users/appveyor/lib/liblzma.exp /out:C:/Users/appveyor/lib/liblzma.lib
 test_script:
   - '%WITH_COMPILER% %PYTHON_HOME%\Scripts\tox'
 
 on_failure:
   - ps: dir "env:"
+  - ps: ls C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft
+  - ps: ls 'C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\'
+  - ps: ls 'C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0'
+  - ps: ls 'C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC'
   - ps: get-content .tox\*\log\*
 artifacts:
   - path: dist\*
