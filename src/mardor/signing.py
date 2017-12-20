@@ -106,7 +106,7 @@ def make_verifier_v2(public_key, signature):
     """
     key = get_publickey(public_key)
     if key.key_size != 4096:
-        raise ValueError('2048 bit RSA key required')
+        raise ValueError('4096 bit RSA key required')
     verifier = key.verifier(
         signature,
         padding.PKCS1v15(),
@@ -153,7 +153,7 @@ def make_signer_v2(private_key):
         backend=default_backend(),
     )
     if key.key_size != 4096:
-        raise ValueError('2048 bit RSA key required')
+        raise ValueError('4096 bit RSA key required')
     signer = key.signer(
         padding.PKCS1v15(),
         hashes.SHA384(),
