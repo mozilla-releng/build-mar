@@ -51,7 +51,7 @@ extra_entry = "extra_entry" / Struct(
 productinfo_entry = "productinto_entry" / Struct(
     # TODO: Can we make this a Rebuild as well as have Padding calculated?
     "size" / Int32ub,
-    "id" / Const(Int32ub, 1),
+    "id" / Const(value=1, subcon=Int32ub),
     "channel" / CString(encoding='ascii'),
     "productversion" / CString(encoding='ascii'),
     "padding" / Padding(this.size - len_(this.channel) -

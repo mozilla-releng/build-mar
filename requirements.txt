@@ -4,14 +4,14 @@
 #
 #    pip-compile --output-file requirements.txt requirements.in
 #
-asn1crypto==0.23.0        # via cryptography
-backports.lzma==0.0.8 ; python_version < "3.3"
-cffi==1.11.2              # via cryptography
+asn1crypto==0.24.0        # via cryptography
+backports.lzma==0.0.10 ; python_version < "3.3"
+cffi==1.11.4              # via cryptography
 click==6.7
-construct==2.8.16
-cryptography==2.1.2
+construct==2.8.22
+cryptography==2.1.4
 enum34==1.1.6             # via cryptography
 idna==2.6                 # via cryptography
-ipaddress==1.0.18         # via cryptography
+ipaddress==1.0.19         # via cryptography
 pycparser==2.18           # via cffi
 six==1.11.0               # via cryptography

@@ -16,19 +16,18 @@ from mardor.utils import safejoin
 from mardor.utils import takeexactly
 
 
-@given(st.lists(st.binary()), st.integers(min_value=0))
-def test_takeexactly(data, n):
-    assume(len(b''.join(data)) >= n)
+@given(st.lists(st.binary()))
+def test_takeexactly(data):
+    n = len(b''.join(data))
+    for i in range(n+1):
+        assert len(b''.join(takeexactly(data, i))) == i
 
-    assert len(b''.join(takeexactly(data, n))) == n
 
-
-@given(st.lists(st.binary()), st.integers(min_value=0))
-def test_takeexactly_notenough(data, n):
-    assume(len(b''.join(data)) < n)
-
+@given(st.lists(st.binary()))
+def test_takeexactly_notenough(data):
+    n = len(b''.join(data))
     with pytest.raises(ValueError):
-        b''.join(takeexactly(data, n))
+        b''.join(takeexactly(data, n+1))
 
 
 @given(st.lists(st.binary()), st.integers(min_value=1, max_value=9))
