@@ -2,6 +2,13 @@
 Changelog
 =========
 
+2.2.3 (2018-01-18)
+------------------
+* Update dependencies; dependencies are now also pinned in setup.py
+* Correct the key size in exception messages
+* Fix for construct 2.8.22 and higher
+* Fix for hypothesis 3.44.16
+
 2.2.2 (2017-07-06)
 -----------------------------------------
 * Fix bug when writing MAR files: the index size was incorrect
