@@ -72,6 +72,17 @@ def do_extract(marfile, destdir, decompress):
 
 
 def get_keys(keyfiles, signature_type):
+    """Get public keys for the given keyfiles.
+
+    Args:
+        keyfiles: List of filenames with public keys, or :mozilla- prefixed key
+                  names
+        signature_type: one of 'sha1' or 'sha384'
+
+    Returns:
+        List of public keys as strings
+
+    """
     builtin_keys = {
         ('release', 'sha1'): [mardor.mozilla.release1_sha1, mardor.mozilla.release2_sha1],
         ('release', 'sha384'): [mardor.mozilla.release1_sha384, mardor.mozilla.release2_sha384],
@@ -148,14 +159,8 @@ def do_create(marfile, files, compress, productversion=None, channel=None,
                 m.add(f, compress=compress)
 
 
-def main(argv=None):
-    """Main CLI entry point."""
-    parser = build_argparser()
-
-    args = parser.parse_args(argv)
-
-    logging.basicConfig(level=args.loglevel, format="%(message)s")
-
+def check_args(parser, args):
+    """Validate commandline arguments."""
     # Make sure only one action has been specified
     if len([a for a in [args.create, args.extract, args.verify, args.list, args.list_detailed] if a is not None]) != 1:
         parser.error("Must specify something to do (one of -c, -x, -t, -T, -v)")
@@ -166,10 +171,44 @@ def main(argv=None):
     if args.verify and not args.keyfiles:
         parser.error("Must specify a key file when verifying")
 
-    if args.extract:
-        if args.compression not in (None, 'bz2', 'xz', 'auto'):
-            parser.error('Unsupported compression type')
+    if args.extract and args.compression not in (None, 'bz2', 'xz', 'auto'):
+        parser.error('Unsupported compression type')
 
+    if args.create and args.compression not in (None, 'bz2', 'xz'):
+        parser.error('Unsupported compression type')
+
+
+def get_key_from_cmdline(parser, args):
+    """Return the signing key and signing algoritm from the commandline."""
+    if args.keyfiles:
+        signing_key = open(args.keyfiles[0], 'rb').read()
+        bits = get_keysize(signing_key)
+        if bits == 2048:
+            signing_algorithm = 'sha1'
+        elif bits == 4096:
+            signing_algorithm = 'sha384'
+        else:
+            parser.error("Unsupported key size {} from key {}".format(bits, args.keyfiles[0]))
+
+        print("Using {} to sign using algorithm {!s}".format(args.keyfiles[0], signing_algorithm))
+    else:
+        signing_key = None
+        signing_algorithm = None
+
+    return signing_key, signing_algorithm
+
+
+def main(argv=None):
+    """Run the main CLI entry point."""
+    parser = build_argparser()
+
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(level=args.loglevel, format="%(message)s")
+
+    check_args(parser, args)
+
+    if args.extract:
         marfile = os.path.abspath(args.extract)
         if args.chdir:
             os.chdir(args.chdir)
@@ -190,23 +229,8 @@ def main(argv=None):
         print("\n".join(do_list(args.list_detailed, detailed=True)))
 
     elif args.create:
-        if args.compression not in (None, 'bz2', 'xz'):
-            parser.error('Unsupported compression type')
         marfile = os.path.abspath(args.create)
-        if args.keyfiles:
-            signing_key = open(args.keyfiles[0], 'rb').read()
-            bits = get_keysize(signing_key)
-            if bits == 2048:
-                signing_algorithm = 'sha1'
-            elif bits == 4096:
-                signing_algorithm = 'sha384'
-            else:
-                parser.error("Unsupported key size {} from key {}".format(bits, args.keyfiles[0]))
-
-            print("Using {} to sign using algorithm {!s}".format(args.keyfiles[0], signing_algorithm))
-        else:
-            signing_key = None
-            signing_algorithm = None
+        signing_key, signing_algorithm = get_key_from_cmdline(parser, args)
 
         if args.chdir:
             os.chdir(args.chdir)

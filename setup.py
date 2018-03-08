@@ -3,6 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""setup module for mar package."""
 from __future__ import absolute_import
 from __future__ import print_function
 
@@ -19,20 +20,21 @@ from setuptools import setup
 
 
 def read(*names, **kwargs):
+    """Read the given path and return its contents."""
     return io.open(
         join(dirname(__file__), *names),
-        encoding=kwargs.get('encoding', 'utf8')
+        encoding=kwargs.get('encoding', 'utf8'),
     ).read()
 
 
 setup(
     name='mar',
-    version='2.2.3',
+    version='2.3.0',
     license='MPL 2.0',
     description='Package for handling Mozilla Archive files.',
     long_description='%s\n%s' % (
         re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst')),
-        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
+        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst')),
     ),
     author='Chris AtLee',
     author_email='catlee@mozilla.com',
@@ -81,6 +83,6 @@ setup(
     entry_points={
         'console_scripts': [
             'mar = mardor.cli:main',
-        ]
+        ],
     },
 )

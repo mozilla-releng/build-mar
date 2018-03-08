@@ -26,6 +26,7 @@ def mkdir(path):
 
     Raises:
         OSError if the directory cannot be created.
+
     """
     try:
         os.makedirs(path)
@@ -47,6 +48,7 @@ def file_iter(f):
 
     Yields:
         blocks of data from `f`
+
     """
     for block in iter(partial(f.read, 1024**2), b''):
         yield block
@@ -66,6 +68,7 @@ def takeexactly(iterable, size):
 
     Raises:
         ValueError if there is less than `size` data in `iterable`
+
     """
     total = 0
     for block in iterable:
@@ -94,6 +97,7 @@ def write_to_file(src, dst):
 
     Returns:
         number of bytes written to `dst`
+
     """
     n = 0
     for block in src:
@@ -111,6 +115,7 @@ def bz2_compress_stream(src, level=9):
 
     Yields:
         blocks of compressed data
+
     """
     compressor = bz2.BZ2Compressor(level)
     for block in src:
@@ -128,6 +133,7 @@ def bz2_decompress_stream(src):
 
     Yields:
         blocks of uncompressed data
+
     """
     dec = bz2.BZ2Decompressor()
     for block in src:
@@ -144,6 +150,7 @@ def xz_compress_stream(src):
 
     Yields:
         blocks of compressed data
+
     """
     compressor = lzma.LZMACompressor(
         check=lzma.CHECK_CRC64,
@@ -167,6 +174,7 @@ def xz_decompress_stream(src):
 
     Yields:
         blocks of uncompressed data
+
     """
     dec = lzma.LZMADecompressor()
     for block in src:
@@ -179,13 +187,14 @@ def xz_decompress_stream(src):
 
 
 def guess_compression(block):
-    """Returns the compression type of the data.
+    """Return the compression type of the data.
 
     Args:
         block (bytes): block of data to identify
 
     Returns:
         One of None, 'bz2', or 'xz'
+
     """
     if block.startswith(b'BZh'):
         return 'bz2'
@@ -206,6 +215,7 @@ def auto_decompress_stream(src):
 
     Yields:
         blocks of uncompressed data
+
     """
     block = next(src)
     compression = guess_compression(block)
@@ -221,7 +231,7 @@ def auto_decompress_stream(src):
 
 
 def path_is_inside(path, dirname):
-    """Returns True if path is under dirname"""
+    """Return True if path is under dirname."""
     path = os.path.abspath(path)
     dirname = os.path.abspath(dirname)
     while len(path) >= len(dirname):
@@ -246,6 +256,7 @@ def safejoin(base, *elements):
 
     Returns:
         elements joined to base
+
     """
     # TODO: do we really want to be absolute here?
     base = os.path.abspath(base)

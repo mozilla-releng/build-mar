@@ -15,8 +15,8 @@ from mardor.signing import make_verifier_v2
     (2048, make_signer_v1, make_verifier_v1),
     (4096, make_signer_v2, make_verifier_v2),
 ])
-def test_good_keysize(key_size, signer, verifier):
-    priv, pub = make_rsa_keypair(key_size)
+def test_good_keysize(key_size, signer, verifier, test_keys):
+    priv, pub = test_keys[key_size]
 
     assert verifier(pub, b'')
     assert signer(priv)
@@ -26,8 +26,8 @@ def test_good_keysize(key_size, signer, verifier):
     (4096, make_signer_v1, make_verifier_v1),
     (2048, make_signer_v2, make_verifier_v2),
 ])
-def test_bad_keysize(key_size, signer, verifier):
-    priv, pub = make_rsa_keypair(key_size)
+def test_bad_keysize(key_size, signer, verifier, test_keys):
+    priv, pub = test_keys[key_size]
 
     with pytest.raises(ValueError):
         verifier(pub, b'')
@@ -39,7 +39,7 @@ def test_bad_keysize(key_size, signer, verifier):
     (2048, make_signer_v1, make_verifier_v1),
     (4096, make_signer_v2, make_verifier_v2),
 ])
-def test_verify_with_privatekey(key_size, signer, verifier):
-    priv, pub = make_rsa_keypair(key_size)
+def test_verify_with_privatekey(key_size, signer, verifier, test_keys):
+    priv, pub = test_keys[key_size]
 
     assert verifier(priv, b'')

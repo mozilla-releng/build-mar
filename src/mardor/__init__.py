@@ -8,5 +8,5 @@ Signing and verification of MAR files are supported.
 
 The primary modules of interest are `mardor.reader` and `mardor.writer`
 """
-version = (2, 2, 3)
-version_str = "2.2.3"
+version = (2, 3, 0)
+version_str = "2.3.0"
