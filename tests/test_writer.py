@@ -6,7 +6,6 @@ import bz2
 import pytest
 
 from mardor.reader import MarReader
-from mardor.signing import make_rsa_keypair
 from mardor.writer import MarWriter
 
 
@@ -133,13 +132,21 @@ def test_bad_parameters(tmpdir):
         MarWriter(f, channel='bar')
     with pytest.raises(ValueError):
         MarWriter(f, signing_key='SECRET')
+    with pytest.raises(ValueError):
+        MarWriter(f, signing_algorithm='crc')
+    with pytest.raises(ValueError):
+        message_p = tmpdir.join('message.txt')
+        message_p.write('hello world')
+        with MarWriter(f) as m:
+            with tmpdir.as_cwd():
+                m.add_file('message.txt', compress='deflate')
 
 
 @pytest.mark.parametrize('key_size, algo_id', [
     (2048, 'sha1'),
     (4096, 'sha384'),])
-def test_signing(tmpdir, key_size, algo_id):
-    private_key, public_key = make_rsa_keypair(key_size)
+def test_signing(tmpdir, key_size, algo_id, test_keys):
+    private_key, public_key = test_keys[key_size]
 
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
@@ -206,3 +213,24 @@ def test_xz_writer(tmpdir):
             m.extract(str(tmpdir.join('extracted')))
             assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
                     b'hello world')
+
+
+def test_writer_badmode(tmpdir, test_keys):
+    private_key, public_key = test_keys[2048]
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('wb') as f:
+        with pytest.raises(ValueError):
+            MarWriter(f, signing_key=private_key, channel='release',
+                      productversion='99.9', signing_algorithm='sha1')
+
+
+def test_empty_mar(tmpdir):
+    mar_p = tmpdir.join('test.mar')
+    with mar_p.open('w+b') as f:
+        with MarWriter(f) as m:
+            pass
+
+    with mar_p.open('rb') as f:
+        with MarReader(f) as m:
+            assert len(m.mardata.index.entries) == 0
+            assert not m.mardata.signatures

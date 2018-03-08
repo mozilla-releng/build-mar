@@ -7,6 +7,8 @@ This module provides the MarWriter class which is used to write MAR files.
 """
 import os
 
+import six
+
 from mardor.format import extras_header
 from mardor.format import index_header
 from mardor.format import mar_header
@@ -51,6 +53,8 @@ class MarWriter(object):
             signing_algorithm (str): one of None, 'sha1', 'sha384'
         """
         self.fileobj = fileobj
+        if signing_algorithm and (fileobj.mode not in ('w+b', 'wb+', 'rb+', 'r+b')):
+            raise ValueError('fileobj must be opened in w+b mode when signing is enabled; mode is {}'.format(fileobj.mode))
         self.data_fileobj = fileobj
         self.entries = []
         self.signature_offset = 8
@@ -178,7 +182,7 @@ class MarWriter(object):
             path = path.replace('\\', '/')
 
         e = dict(
-            name=path,
+            name=six.u(path),
             offset=self.last_offset,
             size=size,
             flags=flags,
@@ -217,6 +221,7 @@ class MarWriter(object):
         Returns:
             A list of signing objects. This may be an empty list in case no
             signing key was provided.
+
         """
         signers = []
         if self.signing_key and self.signing_algorithm == 'sha1':
@@ -238,14 +243,16 @@ class MarWriter(object):
         Returns:
             Fake signature data suitable for writing to the header with
             .write_signatures()
+
         """
         signers = self.get_signers()
+        fake_sigs = {
+            1: b'0' * 256,
+            2: b'0' * 512,
+        }
         signatures = []
         for algo_id, signer in signers:
-            if algo_id == 1:
-                signatures.append((1, b'0' * 256))
-            elif algo_id == 2:
-                signatures.append((2, b'0' * 512))
+            signatures.append((algo_id, fake_sigs[algo_id]))
         return signatures
 
     def calculate_signatures(self):
@@ -253,6 +260,7 @@ class MarWriter(object):
 
         Returns:
             A list of signature tuples: [(algorithm_id, signature_data), ...]
+
         """
         signers = self.get_signers()
         for block in get_signature_data(self.fileobj, self.filesize):
@@ -267,6 +275,7 @@ class MarWriter(object):
         Args:
             signatures (list): list of signature tuples of the form
                 (algorithm_id, signature_data)
+
         """
         self.fileobj.seek(self.signature_offset)
         sig_entries = [dict(algorithm_id=id_,
@@ -292,13 +301,14 @@ class MarWriter(object):
         Args:
             productversion (str): product and version string
             channel (str): channel string
+
         """
         self.fileobj.seek(self.additional_offset)
         extras = extras_header.build(dict(
             count=1,
             sections=[dict(
-                channel=channel,
-                productversion=productversion,
+                channel=six.u(channel),
+                productversion=six.u(productversion),
                 size=len(channel) + len(productversion) + 2 + 8,
                 padding='',
             )],

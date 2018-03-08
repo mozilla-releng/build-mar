@@ -12,7 +12,8 @@ from mardor import mozilla
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
 
-TEST_MAR = os.path.join(os.path.dirname(__file__), 'test-bz2.mar')
+TEST_MAR_BZ2 = os.path.join(os.path.dirname(__file__), 'test-bz2.mar')
+TEST_MAR_XZ = os.path.join(os.path.dirname(__file__), 'test-xz.mar')
 
 
 @fixture
@@ -27,7 +28,7 @@ def test_argparser(parser):
 
 
 def test_extract(tmpdir):
-    cli.do_extract(TEST_MAR, tmpdir, 'auto')
+    cli.do_extract(TEST_MAR_BZ2, tmpdir, 'auto')
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
             b'pref("app.update.channel", "release");\n')
 
@@ -41,25 +42,25 @@ def test_create(tmpdir):
 
 
 def test_verify(tmpdir):
-    assert cli.do_verify(TEST_MAR, [':mozilla-release'])
-    assert not cli.do_verify(TEST_MAR, [':mozilla-nightly'])
-    assert not cli.do_verify(TEST_MAR, [':mozilla-dep'])
+    assert cli.do_verify(TEST_MAR_BZ2, [':mozilla-release'])
+    assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-nightly'])
+    assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-dep'])
 
     with raises(ValueError):
-        cli.do_verify(TEST_MAR, [':mozilla-foo'])
+        cli.do_verify(TEST_MAR_BZ2, [':mozilla-foo'])
 
     keyfile = tmpdir.join('release.pem')
     keyfile.write(mozilla.release1_sha1)
-    assert cli.do_verify(TEST_MAR, [str(keyfile)])
+    assert cli.do_verify(TEST_MAR_BZ2, [str(keyfile)])
 
 
 def test_list():
-    text = "\n".join(cli.do_list(TEST_MAR))
+    text = "\n".join(cli.do_list(TEST_MAR_BZ2))
     assert "\n141     0664    update.manifest\n" in text
 
 
 def test_list_detailed():
-    text = "\n".join(cli.do_list(TEST_MAR, detailed=True))
+    text = "\n".join(cli.do_list(TEST_MAR_BZ2, detailed=True))
     assert "Product version: 100.0\n" in text
     assert "\n141     0664    update.manifest\n" in text
 
@@ -80,40 +81,40 @@ def test_list_noextra(tmpdir):
 
 
 def test_main_verify():
-    args = ['-v', TEST_MAR, '-k', ':mozilla-release']
+    args = ['-v', TEST_MAR_BZ2, '-k', ':mozilla-release']
     cli.main(args)
 
     with raises(SystemExit):
-        args = ['-v', TEST_MAR, '-k', ':mozilla-nightly']
+        args = ['-v', TEST_MAR_BZ2, '-k', ':mozilla-nightly']
         cli.main(args)
 
     with raises(SystemExit):
-        args = ['-v', TEST_MAR]
+        args = ['-v', TEST_MAR_BZ2]
         cli.main(args)
 
 
 def test_main_list():
-    cli.main(['-t', TEST_MAR])
+    cli.main(['-t', TEST_MAR_BZ2])
 
 
 def test_main_list_detailed():
-    cli.main(['-T', TEST_MAR])
+    cli.main(['-T', TEST_MAR_BZ2])
 
 
 def test_main_noaction():
     with raises(SystemExit):
-        cli.main([TEST_MAR])
+        cli.main([TEST_MAR_BZ2])
 
     with raises(SystemExit):
         cli.main(['-c', 'test.mar'])
 
     with raises(SystemExit):
-        cli.main(['-t', '-v', TEST_MAR])
+        cli.main(['-t', '-v', TEST_MAR_BZ2])
 
 
 def test_main_extract(tmpdir):
     with tmpdir.as_cwd():
-        cli.main(['-x', TEST_MAR])
+        cli.main(['-x', TEST_MAR_BZ2])
 
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb')
             .startswith(b'BZh'))
@@ -121,7 +122,15 @@ def test_main_extract(tmpdir):
 
 def test_main_extract_bz2(tmpdir):
     with tmpdir.as_cwd():
-        cli.main(['-x', TEST_MAR, '-j'])
+        cli.main(['-x', TEST_MAR_BZ2, '-j'])
+
+    assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
+            b'pref("app.update.channel", "release");\n')
+
+
+def test_main_extract_xz(tmpdir):
+    with tmpdir.as_cwd():
+        cli.main(['-x', TEST_MAR_XZ, '-J'])
 
     assert (tmpdir.join('defaults/pref/channel-prefs.js').read('rb') ==
             b'pref("app.update.channel", "release");\n')
@@ -134,8 +143,8 @@ def test_main_create(tmpdir):
 
 
 @pytest.mark.parametrize('key_size', [2048, 4096])
-def test_main_create_signed_v1(tmpdir, key_size):
-    priv, pub = make_rsa_keypair(key_size)
+def test_main_create_signed_v1(tmpdir, key_size, test_keys):
+    priv, pub = test_keys[key_size]
     tmpdir.join('hello.txt').write('hello world')
     tmpdir.join('key.pem').write(priv)
     with tmpdir.as_cwd():
@@ -165,5 +174,5 @@ def test_main_create_chdir(tmpdir):
 
 
 def test_main_extract_chdir(tmpdir):
-    cli.main(['-C', str(tmpdir), '-x', TEST_MAR])
+    cli.main(['-C', str(tmpdir), '-x', TEST_MAR_BZ2])
     assert tmpdir.join('defaults/pref/channel-prefs.js').check()

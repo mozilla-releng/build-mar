@@ -1,0 +1,3 @@
+# Bump requirements in tox.ini too
+requirements:
+    - tox.ini

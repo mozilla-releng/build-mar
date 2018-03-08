@@ -9,7 +9,6 @@ import pytest
 import six
 
 from mardor.reader import MarReader
-from mardor.signing import make_rsa_keypair
 
 if six.PY2:
     from backports import lzma
@@ -54,8 +53,8 @@ def test_verify_nosig_extra(mar_cue):
         assert not m.verify(pubkey)
 
 
-def test_verify_wrongkey():
-    private, public = make_rsa_keypair(2048)
+def test_verify_wrongkey(test_keys):
+    private, public = test_keys[2048]
     with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
         assert not m.verify(public)
 
@@ -124,6 +123,12 @@ def test_extract_xz(tmpdir):
                 b'pref("app.update.channel", "release");\n')
 
 
+def test_extract_baddecompression(tmpdir):
+    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+        with pytest.raises(ValueError):
+            m.extract(str(tmpdir), decompress='devnull')
+
+
 def test_compression_type_bz2():
     with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
         assert m.compression_type == 'bz2'
@@ -136,12 +141,19 @@ def test_compression_type_none(mar_uu):
     with MarReader(mar_uu.open('rb')) as m:
         assert m.compression_type is None
 
-def test_signature_type():
+def test_signature_type_sha1():
     with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
         assert m.signature_type == 'sha1'
 
-def test_signature_type(mar_uu):
+def test_signature_type_none(mar_uu):
     with MarReader(mar_uu.open('rb')) as m:
         assert m.signature_type is None
 
-# TODO: Test sha384 signed
+def test_signature_type_sha384(mar_sha384):
+    with MarReader(mar_sha384.open('rb')) as m:
+        assert m.signature_type == 'sha384'
+
+def test_signature_type_unknown():
+    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+        m.mardata.signatures.sigs[0].algorithm_id = 99
+        assert m.signature_type == 'unknown'
