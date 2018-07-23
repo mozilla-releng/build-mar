@@ -22,6 +22,7 @@ from construct import Pointer
 from construct import Prefixed
 from construct import Select
 from construct import Struct
+from construct import Tell
 from construct import len_
 from construct import this
 
@@ -40,6 +41,7 @@ sigs_header = "sigs_header" / Struct(
     "filesize" / Int64ub,
     "count" / Int32ub,
     "sigs" / Array(this.count, sig_entry),
+    "offset" / Tell,
 )
 
 extra_entry = "extra_entry" / Struct(
@@ -61,6 +63,7 @@ productinfo_entry = "productinto_entry" / Struct(
 extras_header = "extras_header" / Struct(
     "count" / Int32ub,
     "sections" / Array(this.count, Select(productinfo_entry, extra_entry)),
+    "offset" / Tell,
 )
 
 index_entry = "index_entry" / Struct(
@@ -81,7 +84,7 @@ def _has_sigs(ctx):
 
     It does this by looking at where file data starts in the file. If this
     starts immediately after the headers (at offset 8), then it's an old style
-    MAR that has no signatures or addiontal information blocks.
+    MAR that has no signatures.
 
     Args:
         ctx (context): construct parsing context
@@ -93,7 +96,28 @@ def _has_sigs(ctx):
     """
     if not ctx.index.entries:
         return False
-    return min(e.offset for e in ctx.index.entries) > 8
+    return ctx.data_offset > 8
+
+
+# Helper method to determine if a MAR file has additional sections or not
+def _has_extras(ctx):
+    """Determine if a MAR file has an additional section block or not.
+
+    It does this by looking at where file data starts in the file. If this
+    starts immediately after the signature data, then no additional sections are present.
+
+    Args:
+        ctx (context): construct parsing context
+
+    Returns:
+        True if the MAR file has an additional section block
+        False otherwise
+
+    """
+    if not ctx.index.entries:
+        return False
+
+    return ctx.data_offset > 8 and ctx.data_offset > ctx.signatures.offset
 
 
 def _data_offset(ctx):
@@ -108,6 +132,10 @@ mar = "mar" / Struct(
 
     "index" / Pointer(this.header.index_offset, index_header),
 
+    # Helper attributes to assist with navigating the file
+    "data_offset" / Computed(_data_offset),
+    "data_length" / Computed(this.header.index_offset - this.data_offset),
+
     # Pointer above restores our seek position to where it was before, i.e.
     # after the mar header. In modern MAR files, the mar header is followed by
     # the signatures and additional data sections. In older MAR files file data
@@ -116,7 +144,5 @@ mar = "mar" / Struct(
     # that don't have signature / extra sections
     # Only add them if the earliest entry offset is greater than 8
     "signatures" / If(_has_sigs, sigs_header),
-    "additional" / If(_has_sigs, extras_header),
-    "data_offset" / Computed(_data_offset),
-    "data_length" / Computed(this.header.index_offset - this.data_offset),
+    "additional" / If(_has_extras, extras_header),
 )
