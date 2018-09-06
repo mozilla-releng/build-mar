@@ -17,7 +17,6 @@ from construct import GreedyRange
 from construct import If
 from construct import Int32ub
 from construct import Int64ub
-from construct import Padding
 from construct import Pointer
 from construct import Prefixed
 from construct import Select
@@ -38,10 +37,11 @@ sig_entry = "sig_entry" / Struct(
 )
 
 sigs_header = "sigs_header" / Struct(
+    "offset" / Tell,
     "filesize" / Int64ub,
     "count" / Int32ub,
     "sigs" / Array(this.count, sig_entry),
-    "offset" / Tell,
+    "offset_end" / Tell,
 )
 
 extra_entry = "extra_entry" / Struct(
@@ -51,19 +51,24 @@ extra_entry = "extra_entry" / Struct(
 )
 
 productinfo_entry = "productinto_entry" / Struct(
-    # TODO: Can we make this a Rebuild as well as have Padding calculated?
     "size" / Int32ub,
     "id" / Const(value=1, subcon=Int32ub),
     "channel" / CString(encoding='ascii'),
     "productversion" / CString(encoding='ascii'),
-    "padding" / Padding(this.size - len_(this.channel) -
-                        len_(this.productversion) - 8),
+    "padding" / Bytes(
+                this.size - len_(this.channel) - len_(this.productversion) -
+                # 8 bytes for size/id fields, and an
+                # extra 2 bytes for the null terminator after
+                # channel and productversion
+                8 - 2,
+    ),
 )
 
 extras_header = "extras_header" / Struct(
+    "offset" / Tell,
     "count" / Int32ub,
     "sections" / Array(this.count, Select(productinfo_entry, extra_entry)),
-    "offset" / Tell,
+    "offset_end" / Tell,
 )
 
 index_entry = "index_entry" / Struct(
@@ -117,7 +122,7 @@ def _has_extras(ctx):
     if not ctx.index.entries:
         return False
 
-    return ctx.data_offset > 8 and ctx.data_offset > ctx.signatures.offset
+    return ctx.data_offset > 8 and ctx.data_offset > (ctx.signatures.offset_end + 8)
 
 
 def _data_offset(ctx):

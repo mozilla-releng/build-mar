@@ -9,12 +9,10 @@ verify MAR files.
 
 import os
 
-from cryptography.exceptions import InvalidSignature
-
 from mardor.format import mar
 from mardor.signing import get_signature_data
-from mardor.signing import make_verifier_v1
-from mardor.signing import make_verifier_v2
+from mardor.signing import make_hasher
+from mardor.signing import verify_signature
 from mardor.utils import auto_decompress_stream
 from mardor.utils import bz2_decompress_stream
 from mardor.utils import file_iter
@@ -146,6 +144,7 @@ class MarReader(object):
             mkdir(entry_dir)
             with open(entry_path, 'wb') as f:
                 write_to_file(self.extract_entry(e, decompress), f)
+                os.chmod(entry_path, e.flags)
 
     def verify(self, verify_key):
         """Verify that this MAR file has a valid signature.
@@ -162,27 +161,52 @@ class MarReader(object):
             # This MAR file can't be verified since it has no signatures
             return False
 
-        verifiers = []
+        hashers = []
         for sig in self.mardata.signatures.sigs:
-            if sig.algorithm_id == 1:
-                verifier = make_verifier_v1(verify_key, sig.signature)
-                verifiers.append(verifier)
-            elif sig.algorithm_id == 2:
-                verifier = make_verifier_v2(verify_key, sig.signature)
-                verifiers.append(verifier)
-            else:
-                raise ValueError('Unsupported algorithm ({})'.format(sig.algorithm_id))
+            hashers.append((sig.algorithm_id, sig.signature, make_hasher(sig.algorithm_id)))
 
-        assert len(verifiers) == len(self.mardata.signatures.sigs)
+        assert len(hashers) == len(self.mardata.signatures.sigs)
 
         for block in get_signature_data(self.fileobj,
                                         self.mardata.signatures.filesize):
-            [v.update(block) for v in verifiers]
+            [h.update(block) for (_, _, h) in hashers]
 
-        for v in verifiers:
-            try:
-                v.verify()
-            except InvalidSignature:
+        for algo_id, sig, h in hashers:
+            if not verify_signature(verify_key, sig, h.finalize(), h.algorithm.name):
                 return False
         else:
             return True
+
+    @property
+    def productinfo(self):
+        """Return the productversion and channel of this MAR if present."""
+        if not self.mardata.additional:
+            return None
+
+        for s in self.mardata.additional.sections:
+            if s.id == 1:
+                return str(s.productversion), str(s.channel)
+
+        return None
+
+    def calculate_hashes(self):
+        """Return hashes of the contents of this MAR file.
+
+        The hashes depend on the algorithms defined in the MAR file's signature block.
+
+        Returns:
+            A list of (algorithm_id, hash) tuples
+
+        """
+        hashers = []
+        if not self.mardata.signatures:
+            return []
+
+        for s in self.mardata.signatures.sigs:
+            h = make_hasher(s.algorithm_id)
+            hashers.append((s.algorithm_id, h))
+
+        for block in get_signature_data(self.fileobj, self.mardata.signatures.filesize):
+            [h.update(block) for (_, h) in hashers]
+
+        return [(algo_id, h.finalize()) for (algo_id, h) in hashers]

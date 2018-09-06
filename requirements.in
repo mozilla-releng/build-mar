@@ -1,4 +1,4 @@
-cryptography
-construct
-click
 backports.lzma; python_version < '3.3'
+click
+construct
+cryptography

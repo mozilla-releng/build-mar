@@ -70,10 +70,11 @@ setup(
         'mozilla', 'mar', 'archive',
     ],
     install_requires=[
-        'click',
-        'cryptography',
-        'construct',
+        'asn1crypto',
         'backports.lzma',
+        'click',
+        'construct',
+        'cryptography',
     ],
     extras_require={
         # eg:

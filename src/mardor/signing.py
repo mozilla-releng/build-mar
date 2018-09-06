@@ -4,6 +4,7 @@
 """Signing, verification and key support for MAR files."""
 from construct import Int32ub
 from construct import Int64ub
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
@@ -11,8 +12,14 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import utils
 
+from mardor.format import mar
 from mardor.format import sigs_header
 from mardor.utils import file_iter
+
+_hash_algorithms = {
+    'sha1': hashes.SHA1(),
+    'sha384': hashes.SHA384(),
+}
 
 
 def get_publickey(keydata):
@@ -31,6 +38,16 @@ def get_publickey(keydata):
         )
         key = key.public_key()
         return key
+
+
+def get_privatekey(keydata):
+    """Load the private key from a PEM encoded string."""
+    key = serialization.load_pem_private_key(
+        keydata,
+        password=None,
+        backend=default_backend(),
+    )
+    return key
 
 
 def get_keysize(keydata):
@@ -56,6 +73,11 @@ def get_signature_data(fileobj, filesize):
     # of the additional section to the end of the file. The signature
     # algorithm id and size fields are also covered.
 
+    fileobj.seek(0)
+    marfile = mar.parse_stream(fileobj)
+    if not marfile.signatures:
+        raise IOError("Can't generate signature data for file without signature blocks")
+
     # MAR header
     fileobj.seek(0)
     block = fileobj.read(8)
@@ -63,12 +85,15 @@ def get_signature_data(fileobj, filesize):
 
     # Signatures header
     sigs = sigs_header.parse_stream(fileobj)
+
+    sig_types = [(sig.algorithm_id, sig.size) for sig in sigs.sigs]
+
     block = Int64ub.build(filesize) + Int32ub.build(sigs.count)
     yield block
 
     # Signature algorithm id and size per entry
-    for sig in sigs.sigs:
-        block = Int32ub.build(sig.algorithm_id) + Int32ub.build(sig.size)
+    for algorithm_id, size in sig_types:
+        block = Int32ub.build(algorithm_id) + Int32ub.build(size)
         yield block
 
     # Everything else in the file is covered
@@ -76,142 +101,59 @@ def get_signature_data(fileobj, filesize):
         yield block
 
 
-class Verifier(object):
-    """Verify MAR signatures."""
-
-    def __init__(self, public_key, signature, hash_algo):
-        """Initialize a new Verifier object.
-
-        Args:
-            public_key (RSA key): An RSA public key
-            signature (bytes): The expected signature
-            hash_algo: An instance of
-                       cryptography.hazmat.primitives.hashes.HashAlgoritm
-        """
-        self.key = public_key
-        self.signature = signature
-        self.hash_algo = hash_algo
-        self.hasher = hashes.Hash(hash_algo, default_backend())
-
-    def update(self, block):
-        """Update the internal hasher with a block of binary data."""
-        self.hasher.update(block)
-
-    def verify(self):
-        """Verify that the signature matches.
-
-        Raises an exception in case the signature fails
-        """
-        self.key.verify(
-            self.signature,
-            self.hasher.finalize(),
-            padding.PKCS1v15(),
-            utils.Prehashed(self.hash_algo),
-        )
+def make_hasher(algorithm_id):
+    """Create a hashing object for the given signing algorithm."""
+    if algorithm_id == 1:
+        return hashes.Hash(hashes.SHA1(), default_backend())
+    elif algorithm_id == 2:
+        return hashes.Hash(hashes.SHA384(), default_backend())
+    else:
+        raise ValueError("Unsupported signing algorithm: %s" % algorithm_id)
 
 
-def make_verifier_v1(public_key, signature):
-    """Create verifier object to verify a `signature`.
+def sign_hash(private_key, hash, hash_algo):
+    """Sign the given hash with the given private key.
 
     Args:
-        public_key (str): PEM formatted public key
-        signature (bytes): signature to verify
+        private_key (str): PEM enoded private key
+        hash (byte str): hash to sign
+        hash_algo (str): name of hash algorithm used
 
     Returns:
-        A Verifier object
+        byte string representing the signature
 
     """
-    key = get_publickey(public_key)
-    if key.key_size != 2048:
-        raise ValueError('2048 bit RSA key required')
-
-    return Verifier(key, signature, hashes.SHA1())
-
-
-def make_verifier_v2(public_key, signature):
-    """Create verifier object to verify a `signature`.
-
-    Args:
-        public_key (str): PEM formatted public key
-        signature (bytes): signature to verify
-
-    Returns:
-        A Verifier object
-
-    """
-    key = get_publickey(public_key)
-    if key.key_size != 4096:
-        raise ValueError('4096 bit RSA key required')
-
-    return Verifier(key, signature, hashes.SHA384())
-
-
-class Signer(object):
-    """Create MAR signatures."""
-
-    def __init__(self, private_key, hash_algo):
-        """Initialize a new Signer object.
-
-        Args:
-            private_key (RSA key): An RSA private key
-            hash_algo: An instance of
-                       cryptography.hazmat.primitives.hashes.HashAlgorithm
-        """
-        self.key = private_key
-        self.hash_algo = hash_algo
-        self.hasher = hashes.Hash(hash_algo, default_backend())
-
-    def update(self, block):
-        """Update the internal hasher with a block of binary data."""
-        self.hasher.update(block)
-
-    def finalize(self):
-        """Return the signature as bytes."""
-        return self.key.sign(
-            self.hasher.finalize(),
-            padding.PKCS1v15(),
-            utils.Prehashed(self.hash_algo),
-        )
-
-
-def make_signer_v1(private_key):
-    """Create a signer object that signs using `private_key`.
-
-    Args:
-        private_key (str): PEM formatted private key
-
-    Returns:
-        A Signer object
-
-    """
-    key = serialization.load_pem_private_key(
-        private_key,
-        password=None,
-        backend=default_backend(),
+    hash_algo = _hash_algorithms[hash_algo]
+    return get_privatekey(private_key).sign(
+        hash,
+        padding.PKCS1v15(),
+        utils.Prehashed(hash_algo),
     )
-    if key.key_size != 2048:
-        raise ValueError('2048 bit RSA key required')
-    return Signer(key, hashes.SHA1())
 
 
-def make_signer_v2(private_key):
-    """Create a signer object that signs using `private_key`.
+def verify_signature(public_key, signature, hash, hash_algo):
+    """Verify the given signature is correct for the given hash and public key.
 
     Args:
-        private_key (str): PEM formatted private key
+        public_key (str): PEM encoded public key
+        signature (bytes): signature to verify
+        hash (bytes): hash of data
+        hash_algo (str): hash algorithm used
 
     Returns:
-        A Signer object
+        True if the signature is valid, False otherwise
 
     """
-    key = serialization.load_pem_private_key(
-        private_key,
-        password=None,
-        backend=default_backend(),
-    )
-    if key.key_size != 4096:
-        raise ValueError('4096 bit RSA key required')
-    return Signer(key, hashes.SHA384())
+    hash_algo = _hash_algorithms[hash_algo]
+    try:
+        return get_publickey(public_key).verify(
+            signature,
+            hash,
+            padding.PKCS1v15(),
+            utils.Prehashed(hash_algo),
+        ) is None
+    except InvalidSignature:
+        return False
 
 
 def make_rsa_keypair(bits):
@@ -239,3 +181,40 @@ def make_rsa_keypair(bits):
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
     return private_pem, public_pem
+
+
+def make_dummy_signature(algorithm_id):
+    """Return dummy signatures of the appropriate length.
+
+    Args:
+        algorithm_id (int): algorithm id for signatures. 1 is for 'sha1', 2 is
+                            for 'sha384'
+
+    Returns:
+        a byte string
+
+    """
+    if algorithm_id == 1:
+        return b'\x00' * 256
+    elif algorithm_id == 2:
+        return b'\x00' * 512
+    else:
+        raise ValueError("Invalid algorithm id: %s" % algorithm_id)
+
+
+def format_hash(digest, hash_algo):
+    """Format a hash as an ASN1 DigestInfo byte string.
+
+    Args:
+        digest (bytes): hash digest
+        hash_algo (str): hash algorithm used, e.g. 'sha384'
+
+    Returns:
+        Byte string of ASN1 encoded digest info
+
+    """
+    prefixes = {
+        'sha1': b'\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14',
+        'sha384': b'\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30',
+    }
+    return prefixes[hash_algo] + digest

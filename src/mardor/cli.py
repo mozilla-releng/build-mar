@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 """Utility for managing mar files."""
-
-# The MAR format is documented at
-# https://wiki.mozilla.org/Software_Update:MAR
+from __future__ import print_function
 
 import logging
 import os
 import sys
+import tempfile
 from argparse import REMAINDER
 from argparse import ArgumentParser
 
 import mardor.mozilla
 from mardor.reader import MarReader
+from mardor.signing import format_hash
 from mardor.signing import get_keysize
 from mardor.writer import MarWriter
+from mardor.writer import add_signature_block
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,13 @@ def build_argparser():
                         const=logging.DEBUG, default=logging.WARN,
                         help="increase logging verbosity")
     parser.add_argument('--version', action='version', version='mar version {}'.format(mardor.version_str))
+
+    signing_group = parser.add_argument_group('Sign a MAR file')
+    signing_group.add_argument('--hash', help='output hash for signing', choices=('sha1', 'sha384'))
+    signing_group.add_argument('--asn1', help='format hash as an ASN1 DigestInfo block',
+                               default=False, action='store_true')
+    signing_group.add_argument('--add-signature', help='inject signature', nargs=3,
+                               metavar=('input', 'output', 'signature'))
 
     return parser
 
@@ -111,7 +119,12 @@ def do_verify(marfile, keyfiles):
     with open(marfile, 'rb') as f:
         with MarReader(f) as m:
             keys = get_keys(keyfiles, m.signature_type)
-            return any(m.verify(key) for key in keys)
+            if any(m.verify(key) for key in keys):
+                print("Verification OK")
+                return True
+            else:
+                print("Verification failed")
+                sys.exit(1)
 
 
 def do_list(marfile, detailed=False):
@@ -128,7 +141,8 @@ def do_list(marfile, detailed=False):
                 if m.signature_type:
                     yield "Signature type: {}".format(m.signature_type)
                 if m.mardata.signatures:
-                    yield "Signature block found with {} signature".format(m.mardata.signatures.count)
+                    plural = "s" if (m.mardata.signatures.count == 0 or m.mardata.signatures.count > 1) else ""
+                    yield "Signature block found with {} signature{}".format(m.mardata.signatures.count, plural)
                     for s in m.mardata.signatures.sigs:
                         yield "- Signature {} size {}".format(s.algorithm_id, s.size)
                     yield ""
@@ -159,11 +173,45 @@ def do_create(marfile, files, compress, productversion=None, channel=None,
                 m.add(f, compress=compress)
 
 
+def do_hash(hash_algo, marfile, asn1=False):
+    """Output the hash for this MAR file."""
+    # Add a dummy signature into a temporary file
+    dst = tempfile.TemporaryFile()
+    with open(marfile, 'rb') as f:
+        add_signature_block(f, dst, hash_algo)
+
+    dst.seek(0)
+
+    with MarReader(dst) as m:
+        hashes = m.calculate_hashes()
+        h = hashes[0][1]
+        if asn1:
+            h = format_hash(h, hash_algo)
+        print(h, end='')
+
+
+def do_add_signature(input_file, output_file, signature_file):
+    """Add a signature to the MAR file."""
+    signature = open(signature_file, 'rb').read()
+    if len(signature) == 256:
+        hash_algo = 'sha1'
+    elif len(signature) == 512:
+        hash_algo = 'sha384'
+    else:
+        raise ValueError()
+
+    with open(output_file, 'w+b') as dst:
+        with open(input_file, 'rb') as src:
+            add_signature_block(src, dst, hash_algo, signature)
+
+
 def check_args(parser, args):
     """Validate commandline arguments."""
     # Make sure only one action has been specified
-    if len([a for a in [args.create, args.extract, args.verify, args.list, args.list_detailed] if a is not None]) != 1:
-        parser.error("Must specify something to do (one of -c, -x, -t, -T, -v)")
+    if len([a for a in [args.create, args.extract, args.verify, args.list,
+                        args.list_detailed, args.hash, args.add_signature] if a
+            is not None]) != 1:
+        parser.error("Must specify something to do (one of -c, -x, -t, -T, -v, --hash, --add-signature)")
 
     if args.create and not args.files:
         parser.error("Must specify at least one file to add to marfile")
@@ -176,6 +224,9 @@ def check_args(parser, args):
 
     if args.create and args.compression not in (None, 'bz2', 'xz'):
         parser.error('Unsupported compression type')
+
+    if args.hash and len(args.files) != 1:
+        parser.error("Must specify a file to output the hash for")
 
 
 def get_key_from_cmdline(parser, args):
@@ -215,12 +266,7 @@ def main(argv=None):
         do_extract(marfile, os.getcwd(), args.compression)
 
     elif args.verify:
-        if do_verify(args.verify, args.keyfiles):
-            print("Verification OK")
-            return
-        else:
-            print("Verification failed")
-            sys.exit(1)
+        do_verify(args.verify, args.keyfiles)
 
     elif args.list:
         print("\n".join(do_list(args.list)))
@@ -237,6 +283,12 @@ def main(argv=None):
         do_create(marfile, args.files, args.compression,
                   productversion=args.productversion, channel=args.channel,
                   signing_key=signing_key, signing_algorithm=signing_algorithm)
+
+    elif args.hash:
+        do_hash(args.hash, args.files[0], args.asn1)
+
+    elif args.add_signature:
+        do_add_signature(args.add_signature[0], args.add_signature[1], args.add_signature[2])
 
     # sanity check; should never happen
     else:  # pragma: no cover

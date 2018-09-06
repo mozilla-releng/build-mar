@@ -265,3 +265,16 @@ def safejoin(base, *elements):
     if not path_is_inside(path, base):
         raise ValueError('target path is outside of the base path')
     return path
+
+
+def filesize(fileobj):
+    """Return the number of bytes in the fileobj.
+
+    This function seeks to the end of the file, and then back to the original position.
+
+    """
+    current = fileobj.tell()
+    fileobj.seek(0, 2)
+    end = fileobj.tell()
+    fileobj.seek(current)
+    return end

@@ -9,6 +9,9 @@ import pytest
 import six
 
 from mardor.reader import MarReader
+from mardor.signing import get_publickey
+from mardor.signing import make_hasher
+from mardor.signing import verify_signature
 
 if six.PY2:
     from backports import lzma
@@ -51,6 +54,12 @@ def test_verify_nosig_extra(mar_cue):
     pubkey = open(TEST_PUBKEY, 'rb').read()
     with MarReader(mar_cue.open('rb')) as m:
         assert not m.verify(pubkey)
+
+
+def test_extract_mode(mar_cu, tmpdir):
+    with MarReader(mar_cu.open('rb')) as m:
+        m.extract(str(tmpdir))
+        assert tmpdir.join('message.txt').stat().mode & 0o777 == 0o755
 
 
 def test_verify_wrongkey(test_keys):
@@ -157,3 +166,13 @@ def test_signature_type_unknown():
     with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
         m.mardata.signatures.sigs[0].algorithm_id = 99
         assert m.signature_type == 'unknown'
+
+def test_calculate_hashes():
+    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+        hashes = m.calculate_hashes()
+        assert len(hashes) == 1
+        assert hashes[0][0] == 1
+        assert hashes[0][1][:20] == b'\xcd%\x0e\x82z%7\xdb\x96\xb4^\x063ZFV8\xfa\xe8k'
+
+        pubkey = open(TEST_PUBKEY, 'rb').read()
+        assert verify_signature(pubkey, m.mardata.signatures.sigs[0].signature, hashes[0][1], 'sha1')

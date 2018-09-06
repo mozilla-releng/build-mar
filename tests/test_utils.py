@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from itertools import repeat
+import os
 
 import hypothesis.strategies as st
 import pytest
@@ -11,6 +12,7 @@ from hypothesis import given
 from mardor.utils import auto_decompress_stream
 from mardor.utils import bz2_compress_stream
 from mardor.utils import bz2_decompress_stream
+from mardor.utils import filesize
 from mardor.utils import mkdir
 from mardor.utils import safejoin
 from mardor.utils import takeexactly
@@ -87,3 +89,7 @@ def test_safejoin():
     assert safejoin('/path/to/t', 'tnew/foo/bar') == '/path/to/t/tnew/foo/bar'
     with pytest.raises(ValueError):
         safejoin('/path/to/t', '../tnew/foo/bar')
+
+
+def test_filesize():
+    assert os.path.getsize(__file__) == filesize(open(__file__, 'rb'))

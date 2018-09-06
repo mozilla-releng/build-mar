@@ -10,6 +10,7 @@ def mar_cu(tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp('data')
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
+    message_p.chmod(0o755)
     mar_p = tmpdir.join('test_cu.mar')
     with mar_p.open('wb') as f:
         with MarWriter(f) as m:
