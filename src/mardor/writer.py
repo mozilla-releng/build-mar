@@ -11,13 +11,16 @@ import six
 
 from mardor.format import extras_header
 from mardor.format import index_header
+from mardor.format import mar
 from mardor.format import mar_header
 from mardor.format import sigs_header
 from mardor.signing import get_signature_data
-from mardor.signing import make_signer_v1
-from mardor.signing import make_signer_v2
+from mardor.signing import make_dummy_signature
+from mardor.signing import make_hasher
+from mardor.signing import sign_hash
 from mardor.utils import bz2_compress_stream
 from mardor.utils import file_iter
+from mardor.utils import takeexactly
 from mardor.utils import write_to_file
 from mardor.utils import xz_compress_stream
 
@@ -34,6 +37,7 @@ class MarWriter(object):
                  productversion=None, channel=None,
                  signing_key=None,
                  signing_algorithm=None,
+                 signature=None,
                  ):
         """Initialize a new MarWriter object.
 
@@ -51,6 +55,7 @@ class MarWriter(object):
                 productversion and channel must be specified together
             signing_key (str): PEM encoded private key used for signing
             signing_algorithm (str): one of None, 'sha1', 'sha384'
+            signature (str): precomputed signature for this file
         """
         self.fileobj = fileobj
         if signing_algorithm and (fileobj.mode not in ('w+b', 'wb+', 'rb+', 'r+b')):
@@ -67,6 +72,7 @@ class MarWriter(object):
         self.productversion = productversion
         self.channel = channel
         self.signing_key = signing_key
+        self.signature = signature
         if signing_algorithm not in (None, 'sha1', 'sha384'):
             raise ValueError('Unsupported signing algorithm: {}'.format(signing_algorithm))
         self.signing_algorithm = signing_algorithm
@@ -215,25 +221,6 @@ class MarWriter(object):
         header = mar_header.build(dict(index_offset=self.last_offset))
         self.fileobj.write(header)
 
-    def get_signers(self):
-        """Create signing objects for signing this MAR file.
-
-        Returns:
-            A list of signing objects. This may be an empty list in case no
-            signing key was provided.
-
-        """
-        signers = []
-        if self.signing_key and self.signing_algorithm == 'sha1':
-            # Algorithm 1: 2048 RSA key w/ SHA1 hash
-            signer = make_signer_v1(self.signing_key)
-            signers.append((1, signer))
-        elif self.signing_key and self.signing_algorithm == 'sha384':
-            # Algorithm 2: 4096 RSA key w/ SHA384 hash
-            signer = make_signer_v2(self.signing_key)
-            signers.append((2, signer))
-        return signers
-
     def dummy_signatures(self):
         """Create a dummy signature.
 
@@ -245,15 +232,11 @@ class MarWriter(object):
             .write_signatures()
 
         """
-        signers = self.get_signers()
-        fake_sigs = {
-            1: b'0' * 256,
-            2: b'0' * 512,
-        }
-        signatures = []
-        for algo_id, signer in signers:
-            signatures.append((algo_id, fake_sigs[algo_id]))
-        return signatures
+        if not self.signing_algorithm:
+            return []
+        algo_id = {'sha1': 1, 'sha384': 2}[self.signing_algorithm]
+        signature = self.signature or make_dummy_signature(algo_id)
+        return [(algo_id, signature)]
 
     def calculate_signatures(self):
         """Calculate the signatures for this MAR file.
@@ -262,11 +245,23 @@ class MarWriter(object):
             A list of signature tuples: [(algorithm_id, signature_data), ...]
 
         """
-        signers = self.get_signers()
-        for block in get_signature_data(self.fileobj, self.filesize):
-            [sig.update(block) for (_, sig) in signers]
+        if self.signature:
+            if self.signing_algorithm == 'sha1':
+                assert len(self.signature) == 256
+                return [(1, self.signature)]
+            elif self.signing_algorithm == 'sha384':
+                assert len(self.signature) == 512
+                return [(2, self.signature)]
 
-        signatures = [(algo_id, sig.finalize()) for (algo_id, sig) in signers]
+        if not self.signing_algorithm:
+            return []
+
+        algo_id = {'sha1': 1, 'sha384': 2}[self.signing_algorithm]
+        hashers = [(algo_id, make_hasher(algo_id))]
+        for block in get_signature_data(self.fileobj, self.filesize):
+            [h.update(block) for (_, h) in hashers]
+
+        signatures = [(algo_id, sign_hash(self.signing_key, h.finalize(), h.algorithm.name)) for (algo_id, h) in hashers]
         return signatures
 
     def write_signatures(self, signatures):
@@ -310,7 +305,7 @@ class MarWriter(object):
                 channel=six.u(channel),
                 productversion=six.u(productversion),
                 size=len(channel) + len(productversion) + 2 + 8,
-                padding='',
+                padding=b'',
             )],
         ))
 
@@ -339,3 +334,77 @@ class MarWriter(object):
             # Refresh the signature
             sigs = self.calculate_signatures()
             self.write_signatures(sigs)
+
+
+def add_signature_block(src_fileobj, dest_fileobj, signing_algorithm, signature=None):
+    """Add a signature block to marfile, a MarReader object.
+
+    Productversion and channel are preserved, but any existing signatures are overwritten.
+
+    Args:
+        src_fileobj (file object): The input MAR file to add a signature to
+        dest_fileobj (file object): File object to write new MAR file to. Must be open in w+b mode.
+        signing_algorithm (str): One of 'sha1', or 'sha384'
+        signature (bytes): Signature to write, or None to use a dummy signature
+    """
+    algo_id = {'sha1': 1, 'sha384': 2}[signing_algorithm]
+    if not signature:
+        signature = make_dummy_signature(algo_id)
+
+    src_fileobj.seek(0)
+    mardata = mar.parse_stream(src_fileobj)
+
+    # Header
+    header = mardata.header
+    dest_fileobj.write(mar_header.build(header))
+
+    # Signature block
+    sig = dict(algorithm_id=algo_id,
+               size=len(signature),
+               signature=signature,
+               )
+
+    # This will be fixed up later
+    filesize = 0
+    sigs_offset = dest_fileobj.tell()
+    sigs = sigs_header.build(dict(
+        filesize=filesize,
+        count=1,
+        sigs=[sig],
+    ))
+    dest_fileobj.write(sigs)
+
+    # Write the additional section
+    dest_fileobj.write(extras_header.build(mardata.additional))
+
+    # Write the data
+    data_offset = dest_fileobj.tell()
+    src_fileobj.seek(mardata.data_offset)
+    write_to_file(takeexactly(src_fileobj, mardata.data_length), dest_fileobj)
+
+    # Write the index
+    index_offset = dest_fileobj.tell()
+
+    index = mardata.index
+
+    # Adjust the offsets
+    data_offset_delta = data_offset - mardata.data_offset
+
+    for e in index.entries:
+        e.offset += data_offset_delta
+
+    dest_fileobj.write(index_header.build(index))
+    filesize = dest_fileobj.tell()
+
+    # Go back and update the index offset and filesize
+    dest_fileobj.seek(0)
+    header.index_offset = index_offset
+    dest_fileobj.write(mar_header.build(header))
+
+    dest_fileobj.seek(sigs_offset)
+    sigs = sigs_header.build(dict(
+        filesize=filesize,
+        count=1,
+        sigs=[sig],
+    ))
+    dest_fileobj.write(sigs)

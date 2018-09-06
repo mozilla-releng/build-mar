@@ -4,9 +4,19 @@
 import bz2
 
 import pytest
+import six
+from mock import patch
+
+from mardor.format import extras_header
 
 from mardor.reader import MarReader
 from mardor.writer import MarWriter
+from mardor.writer import add_signature_block
+
+from mardor.signing import make_hasher
+from mardor.signing import sign_hash
+from mardor.signing import get_publickey
+from mardor.signing import get_privatekey
 
 
 def test_writer(tmpdir):
@@ -234,3 +244,80 @@ def test_empty_mar(tmpdir):
         with MarReader(f) as m:
             assert len(m.mardata.index.entries) == 0
             assert not m.mardata.signatures
+
+
+def test_add_signature(tmpdir, mar_cue, test_keys):
+    dest_mar = tmpdir.join('test.mar')
+
+    # Add a dummy signature
+    with mar_cue.open('rb') as s, dest_mar.open('w+b') as f:
+        add_signature_block(s, f, 'sha384')
+
+    with MarReader(mar_cue.open('rb')) as m, dest_mar.open('rb') as f, MarReader(f) as m1:
+        assert m.productinfo == m1.productinfo
+        assert m.mardata.additional.sections == m1.mardata.additional.sections
+
+        assert len(m.mardata.index.entries) == len(m1.mardata.index.entries)
+        assert m1.mardata.signatures.count == 1
+
+        hashes = m1.calculate_hashes()
+        assert len(hashes) == 1
+        assert hashes[0][1][:20] == b"\r\xa9x\x7f#\xf2m\x93a\xcc\xafJ=\x85\xa3Ss\xb43;"
+
+
+    # Now sign the hash using the test keys, and add the signature back into the file
+    private_key, public_key = test_keys[4096]
+
+    sig = sign_hash(private_key, hashes[0][1], 'sha384')
+    # Add the signature back into the file
+    with mar_cue.open('rb') as s, dest_mar.open('w+b') as f:
+        add_signature_block(s, f, 'sha384', sig)
+
+    with dest_mar.open('rb') as f, MarReader(f) as m1:
+        assert m1.verify(public_key)
+
+    # Assert file contents are the same
+    with dest_mar.open('rb') as f, MarReader(f) as m1:
+        with MarReader(mar_cue.open('rb')) as m:
+            offset_delta = m1.mardata.data_offset - m.mardata.data_offset
+            for (e, e1) in zip(m.mardata.index.entries, m1.mardata.index.entries):
+                assert e.name == e1.name
+                assert e.flags == e1.flags
+                assert e.size == e1.size
+                assert e.offset == e1.offset - offset_delta
+
+                s = b''.join(m.extract_entry(e, decompress=None))
+                s1 = b''.join(m1.extract_entry(e1, decompress=None))
+                assert len(s) == e.size
+                assert len(s1) == e1.size
+                assert s == s1
+
+
+def test_padding(tmpdir):
+    """Check that adding a signature preserves the original padding"""
+    message_p = tmpdir.join('message.txt')
+    message_p.write('hello world')
+    def padded_write(self, productversion, channel):
+        self.fileobj.seek(self.additional_offset)
+        extras = extras_header.build(dict(
+            count=1,
+            sections=[dict(
+                channel=six.u(channel),
+                productversion=six.u(productversion),
+                size=len(channel) + len(productversion) + 2 + 8 + 10,
+                padding=b'\x00' * 10,
+            )],
+        ))
+        self.fileobj.write(extras)
+        self.last_offset = self.fileobj.tell()
+
+    with patch.object(MarWriter, 'write_additional', padded_write):
+        mar_p = tmpdir.join('test.mar')
+        with mar_p.open('w+b') as f:
+            with MarWriter(f, productversion='99.0', channel='1') as m:
+                with tmpdir.as_cwd():
+                    m.add('message.txt', compress='bz2')
+
+    with mar_p.open('rb') as f:
+        with MarReader(f) as m:
+            assert m.mardata.additional.sections[0].padding == b'\x00' * 10

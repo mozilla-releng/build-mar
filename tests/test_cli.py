@@ -43,8 +43,10 @@ def test_create(tmpdir):
 
 def test_verify(tmpdir):
     assert cli.do_verify(TEST_MAR_BZ2, [':mozilla-release'])
-    assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-nightly'])
-    assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-dep'])
+    with raises(SystemExit):
+        assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-nightly'])
+    with raises(SystemExit):
+        assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-dep'])
 
     with raises(ValueError):
         cli.do_verify(TEST_MAR_BZ2, [':mozilla-foo'])
