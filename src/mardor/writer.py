@@ -37,7 +37,6 @@ class MarWriter(object):
                  productversion=None, channel=None,
                  signing_key=None,
                  signing_algorithm=None,
-                 signature=None,
                  ):
         """Initialize a new MarWriter object.
 
@@ -55,7 +54,6 @@ class MarWriter(object):
                 productversion and channel must be specified together
             signing_key (str): PEM encoded private key used for signing
             signing_algorithm (str): one of None, 'sha1', 'sha384'
-            signature (str): precomputed signature for this file
         """
         self.fileobj = fileobj
         if signing_algorithm and (fileobj.mode not in ('w+b', 'wb+', 'rb+', 'r+b')):
@@ -72,7 +70,6 @@ class MarWriter(object):
         self.productversion = productversion
         self.channel = channel
         self.signing_key = signing_key
-        self.signature = signature
         if signing_algorithm not in (None, 'sha1', 'sha384'):
             raise ValueError('Unsupported signing algorithm: {}'.format(signing_algorithm))
         self.signing_algorithm = signing_algorithm
@@ -235,7 +232,7 @@ class MarWriter(object):
         if not self.signing_algorithm:
             return []
         algo_id = {'sha1': 1, 'sha384': 2}[self.signing_algorithm]
-        signature = self.signature or make_dummy_signature(algo_id)
+        signature = make_dummy_signature(algo_id)
         return [(algo_id, signature)]
 
     def calculate_signatures(self):
@@ -245,14 +242,6 @@ class MarWriter(object):
             A list of signature tuples: [(algorithm_id, signature_data), ...]
 
         """
-        if self.signature:
-            if self.signing_algorithm == 'sha1':
-                assert len(self.signature) == 256
-                return [(1, self.signature)]
-            elif self.signing_algorithm == 'sha384':
-                assert len(self.signature) == 512
-                return [(2, self.signature)]
-
         if not self.signing_algorithm:
             return []
 

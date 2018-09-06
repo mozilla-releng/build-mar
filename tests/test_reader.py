@@ -182,6 +182,11 @@ def test_calculate_hashes():
         assert verify_signature(pubkey, m.mardata.signatures.sigs[0].signature, hashes[0][1], 'sha1')
 
 
+def test_calculate_hashes_no_sig(mar_cu):
+    with mar_cu.open('rb') as f, MarReader(f) as m:
+        assert m.calculate_hashes() == []
+
+
 def test_check_bad_signature_algorithm(mar_sha384, tmpdir):
     # Make a copy of mar_sha384
     tmpmar = tmpdir.join('test.mar')
@@ -273,3 +278,13 @@ def test_check_bad_file_entry_size(mar_sha384, tmpdir):
 
         with MarReader(f) as m:
             assert m.get_errors() == ["Entry 'message.txt' ends past data block"]
+
+
+def test_productinfo():
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
+        assert m.productinfo == ('100.0', 'thunderbird-comm-esr')
+
+
+def test_no_productinfo(mar_cu):
+    with mar_cu.open('rb') as f, MarReader(f) as m:
+        assert m.productinfo is None

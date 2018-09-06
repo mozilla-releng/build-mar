@@ -182,7 +182,7 @@ def xz_decompress_stream(src):
         if decoded:
             yield decoded
 
-    if dec.unused_data:
+    if dec.unused_data:  # pragma: nocover; can't figure out how to test this
         raise IOError('Read unused data at end of compressed stream')
 
 
