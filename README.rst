@@ -10,8 +10,7 @@ Overview
     * - docs
       - |docs|
     * - tests
-      - | |travis| |requires|
-        | |coveralls| |codecov|
+      - | |travis| |codecov|
     * - package
       - |version| |downloads| |wheel| |supported-versions| |supported-implementations|
 
@@ -23,37 +22,29 @@ Overview
     :alt: Travis-CI Build Status
     :target: https://travis-ci.org/mozilla/build-mar
 
-.. |requires| image:: https://requires.io/github/mozilla/build-mar/requirements.svg?branch=master
-    :alt: Requirements Status
-    :target: https://requires.io/github/mozilla/build-mar/requirements/?branch=master
-
-.. |coveralls| image:: https://coveralls.io/repos/mozilla/build-mar/badge.svg?branch=master&service=github
-    :alt: Coverage Status
-    :target: https://coveralls.io/r/mozilla/build-mar
-
 .. |codecov| image:: https://codecov.io/github/mozilla/build-mar/coverage.svg?branch=master
     :alt: Coverage Status
     :target: https://codecov.io/github/mozilla/build-mar
 
 .. |version| image:: https://img.shields.io/pypi/v/mar.svg?style=flat
     :alt: PyPI Package latest release
-    :target: https://pypi.python.org/pypi/mar
+    :target: https://pypi.org/project/mar/
 
 .. |downloads| image:: https://img.shields.io/pypi/dm/mar.svg?style=flat
     :alt: PyPI Package monthly downloads
-    :target: https://pypi.python.org/pypi/mar
+    :target: https://pypi.org/project/mar/
 
 .. |wheel| image:: https://img.shields.io/pypi/wheel/mar.svg?style=flat
     :alt: PyPI Wheel
-    :target: https://pypi.python.org/pypi/mar
+    :target: https://pypi.org/project/mar/
 
 .. |supported-versions| image:: https://img.shields.io/pypi/pyversions/mar.svg?style=flat
     :alt: Supported versions
-    :target: https://pypi.python.org/pypi/mar
+    :target: https://pypi.org/project/mar/
 
 .. |supported-implementations| image:: https://img.shields.io/pypi/implementation/mar.svg?style=flat
     :alt: Supported implementations
-    :target: https://pypi.python.org/pypi/mar
+    :target: https://pypi.org/project/mar/
 
 
 .. end-badges
@@ -107,7 +98,7 @@ Installation
 Documentation
 =============
 
-https://mar.readthedocs.io/
+https://mar.readthedocs.io/en/latest/
 
 Development
 ===========
@@ -115,20 +106,3 @@ Development
 To run the all tests run::
 
     tox
-
-Note, to combine the coverage data from all the tox environments run:
-
-.. list-table::
-    :widths: 10 90
-    :stub-columns: 1
-
-    - - Windows
-      - ::
-
-            set PYTEST_ADDOPTS=--cov-append
-            tox
-
-    - - Other
-      - ::
-
-            PYTEST_ADDOPTS=--cov-append tox
