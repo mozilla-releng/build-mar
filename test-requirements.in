@@ -1,5 +1,4 @@
 pytest
-pytest-cov
 pytest-travis-fold
 pytest-random-order
 hypothesis
