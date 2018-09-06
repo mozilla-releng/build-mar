@@ -29,7 +29,7 @@ def read(*names, **kwargs):
 
 setup(
     name='mar',
-    version='2.3.0',
+    version='3.0.0',
     license='MPL 2.0',
     description='Package for handling Mozilla Archive files.',
     long_description='%s\n%s' % (

@@ -1,7 +1,21 @@
-
 Changelog
 =========
-2.3.0 (2018-04-12)
+3.0.0 (2018-09-06)
+------------------
+* Support extracting mar hash for external signing, and injecting signatures
+  into unsigned files.
+* File modes are set on extraction
+* `mar -v` can now verify that unsigned mar files are well formed
+* Added helper productinfo property to MarReader to allow convenient access to
+  the product information information
+* Internal signing API changed:
+  * Got rid of Verifier/Signer classes
+* Internal API for the mar format changed:
+  * offets added for the beginning and end of signature and additional blocks
+  * correctly represent additional section padding
+* Support MAR files without additional sections
+
+2.3.0 (2018-07-23)
 ------------------
 * Remove deprecated usage of signature generation and verification in
   cryptography library. This changes the type of object returned by the
