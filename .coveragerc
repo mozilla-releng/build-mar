@@ -1,7 +1,12 @@
 [run]
 branch = true
 source = mardor
-parallel = true
+
+[paths]
+source =
+    src/mardor
+    .tox/*/lib/python*/site-packages/mardor
+    .tox/pypy/site-packages/mardor
 
 [report]
 show_missing = true
