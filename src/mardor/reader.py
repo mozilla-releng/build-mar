@@ -146,6 +146,53 @@ class MarReader(object):
                 write_to_file(self.extract_entry(e, decompress), f)
                 os.chmod(entry_path, e.flags)
 
+    def _get_signature_errors(self):
+        errors = []
+        if self.mardata.signatures:
+            for s in self.mardata.signatures.sigs:
+                if s.algorithm_id not in (1, 2):
+                    errors.append("Unknown signature algorithm: {:#x}".format(s.algorithm_id))
+        return errors
+
+    def _get_additional_errors(self):
+        errors = []
+        if self.mardata.additional:
+            for s in self.mardata.additional.sections:
+                if s.id not in (1,):
+                    errors.append("Unknown extra section type: {:#x}".format(s.id))
+        return errors
+
+    def _get_entry_errors(self):
+        errors = []
+        # Check that all file contents are within the mar file
+        data_offset = self.mardata.data_offset
+        data_length = self.mardata.data_length
+        index_offset = self.mardata.header.index_offset
+        for e in self.mardata.index.entries:
+            # Check that the file is in range
+            if e.offset < data_offset:
+                errors.append("Entry '{}' starts before data block".format(e.name))
+            if e.offset > index_offset:
+                errors.append("Entry '{}' starts after data block".format(e.name))
+            if e.offset + e.size > data_length + data_offset:
+                errors.append("Entry '{}' ends past data block".format(e.name))
+        return errors
+
+    def get_errors(self):
+        """Verify that this MAR file is well formed.
+
+        Returns:
+            A list of strings describing errors in the MAR file
+            None if this MAR file appears well formed.
+
+        """
+        errors = []
+        errors.extend(self._get_signature_errors())
+        errors.extend(self._get_additional_errors())
+        errors.extend(self._get_entry_errors())
+
+        return errors if errors else None
+
     def verify(self, verify_key):
         """Verify that this MAR file has a valid signature.
 

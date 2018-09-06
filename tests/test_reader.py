@@ -38,6 +38,8 @@ def test_parsing():
         assert mardata.additional.sections[0].productversion == '100.0'
         assert mardata.signatures.count == 1
 
+        assert m.get_errors() is None
+
 
 def test_verify():
     pubkey = open(TEST_PUBKEY, 'rb').read()
@@ -49,11 +51,13 @@ def test_verify_nosig(mar_cu):
     pubkey = open(TEST_PUBKEY, 'rb').read()
     with MarReader(mar_cu.open('rb')) as m:
         assert not m.verify(pubkey)
+        assert m.get_errors() is None
 
 def test_verify_nosig_extra(mar_cue):
     pubkey = open(TEST_PUBKEY, 'rb').read()
     with MarReader(mar_cue.open('rb')) as m:
         assert not m.verify(pubkey)
+        assert m.get_errors() is None
 
 
 def test_extract_mode(mar_cu, tmpdir):
@@ -176,3 +180,96 @@ def test_calculate_hashes():
 
         pubkey = open(TEST_PUBKEY, 'rb').read()
         assert verify_signature(pubkey, m.mardata.signatures.sigs[0].signature, hashes[0][1], 'sha1')
+
+
+def test_check_bad_signature_algorithm(mar_sha384, tmpdir):
+    # Make a copy of mar_sha384
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            assert m.mardata.signatures.count == 1
+            offset = m.mardata.signatures.offset
+            offset += 12
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+        with MarReader(f) as m:
+            assert m.mardata.signatures.count == 1
+            assert m.mardata.signatures.sigs[0].algorithm_id == 0x12345678
+            assert m.get_errors() == ["Unknown signature algorithm: 0x12345678"]
+
+
+def test_check_bad_extra_section_id(mar_sha384, tmpdir):
+    # Make a copy of mar_sha384
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            assert m.mardata.additional.count == 1
+            offset = m.mardata.additional.offset
+            offset += 8
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+        with MarReader(f) as m:
+            assert m.mardata.additional.count == 1
+            assert m.mardata.additional.sections[0].id == 0x12345678
+            assert m.get_errors() == ["Unknown extra section type: 0x12345678"]
+
+
+
+def test_check_bad_file_entry_before(mar_sha384, tmpdir):
+    # Make a copy of mar_sha384
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            offset = m.mardata.header.index_offset
+            offset += 4
+
+        f.seek(offset)
+        f.write(b'\x00\x00\x00\x00')
+        f.seek(0)
+
+        with MarReader(f) as m:
+            assert m.get_errors() == ["Entry 'message.txt' starts before data block"]
+
+
+def test_check_bad_file_entry_after(mar_sha384, tmpdir):
+    # Make a copy of mar_sha384
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            offset = m.mardata.header.index_offset
+            offset += 4
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+        with MarReader(f) as m:
+            assert m.get_errors() == ["Entry 'message.txt' starts after data block",
+                                      "Entry 'message.txt' ends past data block"]
+
+
+def test_check_bad_file_entry_size(mar_sha384, tmpdir):
+    # Make a copy of mar_sha384
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            offset = m.mardata.header.index_offset
+            offset += 8
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+        with MarReader(f) as m:
+            assert m.get_errors() == ["Entry 'message.txt' ends past data block"]

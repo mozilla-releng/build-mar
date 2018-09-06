@@ -11,6 +11,8 @@ from mardor import cli
 from mardor import mozilla
 from mardor.reader import MarReader
 from mardor.signing import make_rsa_keypair
+from mardor.signing import sign_hash
+from mardor.writer import add_signature_block
 
 TEST_MAR_BZ2 = os.path.join(os.path.dirname(__file__), 'test-bz2.mar')
 TEST_MAR_XZ = os.path.join(os.path.dirname(__file__), 'test-xz.mar')
@@ -43,13 +45,19 @@ def test_create(tmpdir):
 
 def test_verify(tmpdir):
     assert cli.do_verify(TEST_MAR_BZ2, [':mozilla-release'])
+    assert cli.do_verify(TEST_MAR_BZ2)
+
     with raises(SystemExit):
         assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-nightly'])
     with raises(SystemExit):
         assert not cli.do_verify(TEST_MAR_BZ2, [':mozilla-dep'])
 
-    with raises(ValueError):
+    with raises(SystemExit):
         cli.do_verify(TEST_MAR_BZ2, [':mozilla-foo'])
+
+    with raises(SystemExit):
+        cli.do_verify(__file__)
+
 
     keyfile = tmpdir.join('release.pem')
     keyfile.write(mozilla.release1_sha1)
@@ -84,15 +92,14 @@ def test_list_noextra(tmpdir):
 
 def test_main_verify():
     args = ['-v', TEST_MAR_BZ2, '-k', ':mozilla-release']
-    cli.main(args)
+    assert cli.main(args) is None
 
     with raises(SystemExit):
         args = ['-v', TEST_MAR_BZ2, '-k', ':mozilla-nightly']
         cli.main(args)
 
-    with raises(SystemExit):
-        args = ['-v', TEST_MAR_BZ2]
-        cli.main(args)
+    args = ['-v', TEST_MAR_BZ2]
+    assert cli.main(args) is None
 
 
 def test_main_list():
@@ -178,3 +185,124 @@ def test_main_create_chdir(tmpdir):
 def test_main_extract_chdir(tmpdir):
     cli.main(['-C', str(tmpdir), '-x', TEST_MAR_BZ2])
     assert tmpdir.join('defaults/pref/channel-prefs.js').check()
+
+
+def test_verify_malformed(mar_sha384, tmpdir):
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        # Mess with the mar's file offsets
+        with MarReader(f) as m:
+            offset = m.mardata.header.index_offset
+            offset += 8
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+    with raises(SystemExit):
+        assert not cli.do_verify(str(tmpmar))
+
+
+def test_list_unknown_extra(mar_sha384, tmpdir):
+    tmpmar = tmpdir.join('test.mar')
+    mar_sha384.copy(tmpmar)
+    with tmpmar.open('r+b') as f:
+        with MarReader(f) as m:
+            offset = m.mardata.additional.offset
+            offset += 8
+
+        f.seek(offset)
+        f.write(b'\x12\x34\x56\x78')
+        f.seek(0)
+
+    text = "\n".join(cli.do_list(str(tmpmar), detailed=True))
+    assert "Unknown additional data" in text
+
+def test_hash(capsys):
+    cli.do_hash('sha1', TEST_MAR_BZ2, False)
+    cap = capsys.readouterr()
+    assert cap.out == 'zSUOgnolN9uWtF4GM1pGVjj66Gs=\n'
+
+    cli.do_hash('sha1', TEST_MAR_BZ2, True)
+    cap = capsys.readouterr()
+    assert cap.out == 'MCEwCQYFKw4DAhoFAAQUzSUOgnolN9uWtF4GM1pGVjj66Gs=\n'
+
+    cli.do_hash('sha384', TEST_MAR_BZ2, True)
+    cap = capsys.readouterr()
+    assert cap.out == 'MEEwDQYJYIZIAWUDBAICBQAEMDASZm7fTyQ8YmHZUbTRgOIwzjjQ5AUY8LxwUm4euGUJk11WhHGf3PCpdNeVpGrvqg==\n'
+
+def test_add_signature_sha1(tmpdir, test_keys):
+    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+        hashes = m.calculate_hashes()
+    assert hashes == [(1, b'\xcd%\x0e\x82z%7\xdb\x96\xb4^\x063ZFV8\xfa\xe8k')]
+
+    h = hashes[0][1]
+
+    priv, pub = test_keys[2048]
+    sig = sign_hash(priv, h, 'sha1')
+
+    sigfile = tmpdir.join('signature')
+    with sigfile.open('wb') as f:
+        f.write(sig)
+
+    tmpmar = tmpdir.join('output.mar')
+    cli.do_add_signature(TEST_MAR_BZ2, str(tmpmar), str(sigfile))
+
+    pubkey = tmpdir.join('pubkey')
+    with pubkey.open('wb') as f:
+        f.write(pub)
+    assert cli.do_verify(str(tmpmar), [str(pubkey)])
+
+def test_add_signature_sha384(tmpdir, test_keys):
+    tmpmar = tmpdir.join('test.mar')
+    with open(TEST_MAR_XZ, 'rb') as f:
+        with tmpmar.open('wb') as dst:
+            add_signature_block(f, dst, 'sha384')
+
+    with MarReader(tmpmar.open('rb')) as m:
+        hashes = m.calculate_hashes()
+    assert hashes == [(2, b'\x08>\x82\x8d$\xbb\xa6Cg\xca\x15L\x9c\xf1\xde\x170\xbe\xeb8]\x17\xb9\xfdB\xa9\xd6\xf1(y\'\xf44\x1f\x01c%\xd4\x92\x1avm!\t\xd9\xc4\xfbv')]
+
+    h = hashes[0][1]
+
+    priv, pub = test_keys[4096]
+    sig = sign_hash(priv, h, 'sha384')
+
+    sigfile = tmpdir.join('signature')
+    with sigfile.open('wb') as f:
+        f.write(sig)
+
+    tmpmar = tmpdir.join('output.mar')
+    cli.do_add_signature(TEST_MAR_XZ, str(tmpmar), str(sigfile))
+
+    pubkey = tmpdir.join('pubkey')
+    with pubkey.open('wb') as f:
+        f.write(pub)
+    assert cli.do_verify(str(tmpmar), [str(pubkey)])
+
+def test_add_signature_badsig(tmpdir):
+    with tmpdir.join('sig').open('wb') as f:
+        f.write(b"bad sig")
+
+    with raises(ValueError):
+        cli.do_add_signature(TEST_MAR_BZ2, str(tmpdir.join('test.mar')), str(tmpdir.join('sig')))
+
+def test_main_hash():
+    args = ['--hash', 'sha1', TEST_MAR_BZ2]
+    assert cli.main(args) is None
+
+    with raises(SystemExit):
+        args = ['--hash', 'sha1']
+        cli.main(args)
+
+    with raises(SystemExit):
+        args = ['--hash', 'sha1', TEST_MAR_BZ2, TEST_MAR_XZ]
+        cli.main(args)
+
+def test_main_add_signature(tmpdir):
+    tmpmar = str(tmpdir.join('output.mar'))
+    sigfile = tmpdir.join('sig')
+    sigfile.write(b'0' * 256)
+    args = ['--add-signature', TEST_MAR_BZ2, tmpmar, str(sigfile)]
+    assert cli.main(args) is None

@@ -2,6 +2,7 @@
 """Utility for managing mar files."""
 from __future__ import print_function
 
+import base64
 import logging
 import os
 import sys
@@ -114,17 +115,38 @@ def get_keys(keyfiles, signature_type):
     return keys
 
 
-def do_verify(marfile, keyfiles):
+def do_verify(marfile, keyfiles=None):
     """Verify the MAR file."""
-    with open(marfile, 'rb') as f:
-        with MarReader(f) as m:
-            keys = get_keys(keyfiles, m.signature_type)
-            if any(m.verify(key) for key in keys):
-                print("Verification OK")
-                return True
-            else:
-                print("Verification failed")
-                sys.exit(1)
+    try:
+        with open(marfile, 'rb') as f:
+            with MarReader(f) as m:
+                # Check various parts of the mar file
+                # e.g. signature algorithms and additional block sections
+                errors = m.get_errors()
+                if errors:
+                    print("File is not well formed: {}".format(errors))
+                    sys.exit(1)
+
+                if keyfiles:
+                    try:
+                        keys = get_keys(keyfiles, m.signature_type)
+                    except ValueError as e:
+                        print(e)
+                        sys.exit(1)
+
+                    if any(m.verify(key) for key in keys):
+                        print("Verification OK")
+                        return True
+                    else:
+                        print("Verification failed")
+                        sys.exit(1)
+                else:
+                    print("Verification OK")
+                    return True
+
+    except Exception as e:
+        print("Error opening or parsing file: {}".format(e))
+        sys.exit(1)
 
 
 def do_list(marfile, detailed=False):
@@ -187,7 +209,8 @@ def do_hash(hash_algo, marfile, asn1=False):
         h = hashes[0][1]
         if asn1:
             h = format_hash(h, hash_algo)
-        print(h, end='')
+
+        print(base64.b64encode(h).decode('ascii'))
 
 
 def do_add_signature(input_file, output_file, signature_file):
@@ -216,13 +239,10 @@ def check_args(parser, args):
     if args.create and not args.files:
         parser.error("Must specify at least one file to add to marfile")
 
-    if args.verify and not args.keyfiles:
-        parser.error("Must specify a key file when verifying")
-
-    if args.extract and args.compression not in (None, 'bz2', 'xz', 'auto'):
+    if args.extract and args.compression not in (None, 'bz2', 'xz', 'auto'):  # pragma: nocover
         parser.error('Unsupported compression type')
 
-    if args.create and args.compression not in (None, 'bz2', 'xz'):
+    if args.create and args.compression not in (None, 'bz2', 'xz'):  # pragma: nocover
         parser.error('Unsupported compression type')
 
     if args.hash and len(args.files) != 1:
