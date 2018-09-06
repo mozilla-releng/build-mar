@@ -253,7 +253,7 @@ def test_add_signature(tmpdir, mar_cue, test_keys):
     with mar_cue.open('rb') as s, dest_mar.open('w+b') as f:
         add_signature_block(s, f, 'sha384')
 
-    with MarReader(mar_cue.open('rb')) as m, dest_mar.open('rb') as f, MarReader(f) as m1:
+    with mar_cue.open('rb') as s, MarReader(s) as m, dest_mar.open('rb') as f, MarReader(f) as m1:
         assert m.productinfo == m1.productinfo
         assert m.mardata.additional.sections == m1.mardata.additional.sections
 

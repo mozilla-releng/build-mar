@@ -129,7 +129,8 @@ def _data_offset(ctx):
     if not ctx.index.entries:
         return ctx.header.index_offset
     else:
-        return ctx.index.entries[0].offset
+        # data offset can never be less than 8, which is the size of the MAR header
+        return max(ctx.index.entries[0].offset, 8)
 
 
 mar = "mar" / Struct(

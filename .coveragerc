@@ -1,13 +1,6 @@
-[paths]
-source =
-   src/mardor
-   */site-packages/mardor
-
 [run]
 branch = true
-source =
-    mardor
-    tests
+source = mardor
 parallel = true
 
 [report]
