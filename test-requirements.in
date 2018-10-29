@@ -1,4 +1,5 @@
 pytest
+coverage
 pytest-travis-fold
 pytest-random-order
 hypothesis
