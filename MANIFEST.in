@@ -19,8 +19,10 @@ include README.rst
 include get_mozilla_keys.sh
 include update-requirements.sh
 include requirements.txt
+include requirements-py2.txt
 include requirements.in
 include test-requirements.txt
+include test-requirements-py2.txt
 include test-requirements.in
 
 include tox.ini .travis.yml .pyup.yml

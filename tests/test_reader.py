@@ -76,8 +76,9 @@ def test_verify_unsupportedalgo():
     pubkey = open(TEST_PUBKEY, 'rb').read()
     with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
         m.mardata.signatures.sigs[0].algorithm_id = 3
-        with pytest.raises(ValueError, message='Unsupported algorithm'):
+        with pytest.raises(ValueError) as e:
             m.verify(pubkey)
+        assert "Unsupported signing algorithm: 3" in str(e.value)
 
 
 def test_extract_bz2(tmpdir):
