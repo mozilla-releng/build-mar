@@ -99,6 +99,7 @@ def get_keys(keyfiles, signature_type):
         ('nightly', 'sha384'): [mardor.mozilla.nightly1_sha384, mardor.mozilla.nightly2_sha384],
         ('dep', 'sha1'): [mardor.mozilla.dep1_sha1, mardor.mozilla.dep2_sha1],
         ('dep', 'sha384'): [mardor.mozilla.dep1_sha384, mardor.mozilla.dep2_sha384],
+        ('autograph-stage', 'sha384'): [mardor.mozilla.autograph_stage_sha384],
     }
     keys = []
     for keyfile in keyfiles:

@@ -3,6 +3,7 @@
 set -e
 
 SHA1_REV="58402b43c9e1e22d8a9976ee9a7e4ffeee1bbbf2"
+# TODO update this rev when we land the autograph-stage key in-tree
 SHA384_REV="92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5"
 
 function get_key() {
@@ -46,4 +47,7 @@ echo
 get_key "dep1.der" "dep1_sha1" $SHA1_REV
 echo
 get_key "dep2.der" "dep2_sha1" $SHA1_REV
+echo
+
+get_key "autograph_stage.der" "autograph_stage_sha384" $SHA384_REV
 ) > src/mardor/mozilla.py
