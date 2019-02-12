@@ -17,6 +17,17 @@ function get_key() {
     echo '"""'
 }
 
+function get_pem_key() {
+    filename=$1
+    name=$2
+    rev=${3-default}
+    url="https://hg.mozilla.org/mozilla-central/raw-file/${rev}/toolkit/mozapps/update/updater/${filename}"
+    echo "# From $url"
+    echo -n "$name = b\"\"\""
+    curl -s $url
+    echo '"""'
+}
+
 (
 echo "#"
 echo "# Automatically generated - do not edit!"
@@ -49,5 +60,5 @@ echo
 get_key "dep2.der" "dep2_sha1" $SHA1_REV
 echo
 
-get_key "autograph_stage.der" "autograph_stage_sha384" $SHA384_REV
+get_pem_key "autograph_stage.pem" "autograph_stage_sha384" $SHA384_REV
 ) > src/mardor/mozilla.py
