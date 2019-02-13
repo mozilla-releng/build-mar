@@ -3,8 +3,7 @@
 set -e
 
 SHA1_REV="58402b43c9e1e22d8a9976ee9a7e4ffeee1bbbf2"
-# TODO update this rev when we land the autograph-stage key in-tree
-SHA384_REV="92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5"
+SHA384_REV="91ac960f7b59bad97277da550775df1e14a6c9fb"
 
 function get_key() {
     filename=$1
@@ -24,7 +23,7 @@ function get_pem_key() {
     url="https://hg.mozilla.org/mozilla-central/raw-file/${rev}/toolkit/mozapps/update/updater/${filename}"
     echo "# From $url"
     echo -n "$name = b\"\"\""
-    curl -s $url
+    curl -s $url | head -c -1
     echo '"""'
 }
 

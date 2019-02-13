@@ -2,7 +2,7 @@
 # Automatically generated - do not edit!
 #
 # flake8: noqa
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/release_primary.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/release_primary.der
 release1_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAxCHbY+fP3dvaP9XVbmK6
 i4rbqo72INEWgDSYbr/DIYfCSzHC9H8pU8dyjt+Nd8OtoUZtBD1N9fP7SlrvPZSI
@@ -18,7 +18,7 @@ zzLpymnLo3cAz3IPfXyqVB+mcLcpqbHjl3hWms6l1wGtz6S4WqdrWs/KfzS5EyDK
 r63xn1Rg/XFmR57EsFEXAZ8CAwEAAQ==
 -----END PUBLIC KEY-----"""
 
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/release_secondary.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/release_secondary.der
 release2_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvki6CZE2td7jAtx/+51m
 V7w+/xA16HegUXVaesBC/00jG6aAMRo7fczXolCzhMatBeTWrweXsiJ9UhwMhanj
@@ -56,7 +56,7 @@ fciTekyH9fav66rj7erU/lcnoFJLKrf2Wpu04R0na7q5TACjJx8yYta6fbwCQU01
 uwIDAQAB
 -----END PUBLIC KEY-----"""
 
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/nightly_aurora_level3_primary.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/nightly_aurora_level3_primary.der
 nightly1_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAth151NGY8PBzn0bii9Yc
 AjYHZDwP9Lj1c3owG0zLqW2kPcdp86QTAcoYunHGYFFakNG3tooZhzwkMjZ1OrXc
@@ -72,7 +72,7 @@ lgjPRhY+NeTnWMo2nGb4/eS6Cn2qFLfbEQjsj6pJJBNKfvK/gm1jXb3PgXXdf8+d
 Fn0h7JyTGmEdFu6l4OhS8hMCAwEAAQ==
 -----END PUBLIC KEY-----"""
 
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/nightly_aurora_level3_secondary.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/nightly_aurora_level3_secondary.der
 nightly2_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAzxgPvz/iBTM1s8pPOYpF
 Vfd/B1IGoNOwhh0zezL2QZHDqYZSLG3DMLQIQr3iEGwJq2wwRnOlZm5MqPfVKpif
@@ -110,7 +110,7 @@ uJkvMZOHEuJwWT8ywfaXx/CN/jVt2OF+hCd20RVe08T5V6SjTM/QBgUtlRpQv2+e
 MwIDAQAB
 -----END PUBLIC KEY-----"""
 
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/dep1.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/dep1.der
 dep1_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA8Y6AS+xwKoXZl0X5qOKr
 0I00xC4UN+IMjA1LIQoZ2GBkiqQF3q8v2nWTFE0+47+3NtP0l8tvsQY+LSYR4Fek
@@ -126,7 +126,7 @@ MIAU56s4g+yj7pSzT5/s9r8Gv+YhsNHKm4hnwLZaITV0lLMT5h/OZGseQTPMBnAR
 hK3CIfcqG0I23hdwI29ZuUMCAwEAAQ==
 -----END PUBLIC KEY-----"""
 
-# From https://hg.mozilla.org/mozilla-central/raw-file/92f6879a8f9fc7e727d7c281c9fa9f538cb96cb5/toolkit/mozapps/update/updater/dep2.der
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/dep2.der
 dep2_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAzR/PTXo4ZUIV3p2mBwOy
 1qEemi4ZW84TqO0W5ws5ENuYvKGusYETvSS/WnUEzI3J7aQOzAtCIuxEsaGZTXdX
@@ -164,6 +164,7 @@ alRnlvBZWbO9ZoiXbyuxXjZRRRx6vO8UTEOQTsKmXBAGZCW6z0+AAlgvPnILgOG+
 jQIDAQAB
 -----END PUBLIC KEY-----"""
 
+# From https://hg.mozilla.org/mozilla-central/raw-file/91ac960f7b59bad97277da550775df1e14a6c9fb/toolkit/mozapps/update/updater/autograph_stage.pem
 autograph_stage_sha384 = b"""-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvN249lqptaK9L7VltsDt
 6X/Hik/iqHSdJMwAWOoB8exyUvura0VMZhYNGCl046zKnE9aX5aMk4s4MJX0Kw9Q
