@@ -1,5 +1,10 @@
 Changelog
 =========
+3.1.0 (2019-02-19)
+------------------
+* Added new autograph stage public key
+* Dropped python3.5 support
+
 3.0.0 (2018-09-06)
 ------------------
 * Support extracting mar hash for external signing, and injecting signatures
