@@ -15,6 +15,7 @@ include CHANGELOG.rst
 include CONTRIBUTING.rst
 include LICENSE
 include README.rst
+include CODE_OF_CONDUCT.md
 
 include get_mozilla_keys.sh
 include update-requirements.sh
