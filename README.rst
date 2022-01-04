@@ -46,7 +46,6 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/mar/
 
-
 .. end-badges
 
 Package for handling Mozilla Archive files. MAR file format is documented at https://wiki.mozilla.org/Software_Update:MAR
