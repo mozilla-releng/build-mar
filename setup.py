@@ -9,6 +9,7 @@ from __future__ import print_function
 
 import io
 import re
+import sys
 from glob import glob
 from os.path import basename
 from os.path import dirname
@@ -17,6 +18,16 @@ from os.path import splitext
 
 from setuptools import find_packages
 from setuptools import setup
+
+
+requires = [
+    'asn1crypto',
+    'click',
+    'construct',
+    'cryptography',
+]
+if sys.version_info[0] == 2:
+    requires.append('backports.lzma')
 
 
 def read(*names, **kwargs):
@@ -69,13 +80,7 @@ setup(
     keywords=[
         'mozilla', 'mar', 'archive',
     ],
-    install_requires=[
-        'asn1crypto',
-        'backports.lzma',
-        'click',
-        'construct',
-        'cryptography',
-    ],
+    install_requires=requires,
     extras_require={
         # eg:
         #   'rst': ['docutils>=0.11'],
