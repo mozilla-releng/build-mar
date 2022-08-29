@@ -25,6 +25,7 @@ requires = [
     'click',
     'construct',
     'cryptography',
+    'six',
 ]
 if sys.version_info[0] == 2:
     requires.append('backports.lzma')
