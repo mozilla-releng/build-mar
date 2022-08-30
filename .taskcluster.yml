@@ -1,0 +1,126 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+version: 1
+reporting: checks-v1
+policy:
+  pullRequests: public
+tasks:
+  $let:
+    expires_in: {$fromNow: '1 year'}
+    user: ${event.sender.login}
+
+    # We define the following variable at the very top, because they are used in the
+    # default definition
+    head_branch:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.ref}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.ref}
+        else: ${event.release.target_commitish}
+
+    head_rev:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.sha}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.after}
+        else: ${event.release.tag_name}
+
+    repository:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.repo.html_url}
+      else: ${event.repository.html_url}
+
+    github_repository_full_name:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.base.repo.full_name}
+      else: ${event.repository.full_name}
+
+  in:
+    $let:
+      short_head_branch:
+        $if: 'head_branch[:10] == "refs/tags/"'
+        then: {$eval: 'head_branch[10:]'}
+        else:
+          $if: 'head_branch[:11] == "refs/heads/"'
+          then: {$eval: 'head_branch[11:]'}
+          else: ${head_branch}
+
+      assume_scope_prefix: assume:repo:github.com/${github_repository_full_name}
+    in:
+      $let:
+        default_task_definition:
+          schedulerId: taskcluster-github
+          created: {$fromNow: ''}
+          deadline: {$fromNow: '2 hours'}
+          expires: ${expires_in}
+          provisionerId: releng-t
+          workerType: linux
+          retries: 5
+          payload:
+            maxRunTime: 600
+            command:
+              - /bin/bash
+              - --login
+              - -cx
+              - >-
+                git clone ${repository} /build
+                && cd /build
+                && git config advice.detachedHead false
+                && git checkout ${head_branch}
+                && pip install tox
+                && tox -e "$TOX_ENV"
+            env:
+              SKIP_NETWORK_TESTS: "0"
+          metadata:
+            owner: ${user}@users.noreply.github.com
+            source: ${repository}/raw/${head_rev}/.taskcluster.yml
+          routes:
+            - checks
+      in:
+        $flatten:
+          $map:
+            - short_name: py27
+              image_tag: '2.7'
+            - short_name: py36
+              image_tag: '3.6'
+            - short_name: py37
+              image_tag: '3.7'
+            - short_name: py38
+              image_tag: '3.8'
+            - short_name: py39
+              image_tag: '3.9'
+            - short_name: py310
+              image_tag: '3.10'
+            - short_name: docs-localbuild
+              image_tag: '3.10'
+          each(python_version):
+            $let:
+              python_task_definition:
+                payload:
+                  image: python:${python_version.image_tag}
+                  env:
+                    TOX_ENV: ${python_version.short_name}
+            in:
+              - $if: 'tasks_for == "github-pull-request" && event["action"] in ["opened", "reopened", "edited", "synchronize"]'
+                then:
+                  $mergeDeep:
+                    - {$eval: 'default_task_definition'}
+                    - {$eval: 'python_task_definition'}
+                    - scopes:
+                        - ${assume_scope_prefix}:pull-request
+                      metadata:
+                        name: 'build-mar - ${python_version.short_name} (Pull Request #${event.pull_request.number})'
+                        description: 'Triggered by [#${event.pull_request.number}](${event.pull_request.html_url})'
+              - $if: 'tasks_for == "github-push" && head_branch[:10] != "refs/tags/"'
+                then:
+                  $mergeDeep:
+                    - {$eval: 'default_task_definition'}
+                    - {$eval: 'python_task_definition'}
+                    - scopes:
+                        - ${assume_scope_prefix}:branch:${short_head_branch}
+                      metadata:
+                        name: 'build-mar - ${python_version.short_name} (${head_rev})'
+                        description: 'Triggered by ${head_rev}'
