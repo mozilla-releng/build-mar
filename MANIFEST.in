@@ -18,7 +18,6 @@ include README.rst
 include CODE_OF_CONDUCT.md
 
 include get_mozilla_keys.sh
-include update-requirements.sh
 include requirements.txt
 include requirements-py2.txt
 include requirements.in
