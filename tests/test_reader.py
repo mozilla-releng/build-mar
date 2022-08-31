@@ -24,7 +24,7 @@ TEST_PUBKEY = os.path.join(os.path.dirname(__file__), 'test.pubkey')
 
 
 def test_parsing():
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         mardata = m.mardata
         index = mardata.index
         entries = index.entries
@@ -42,39 +42,43 @@ def test_parsing():
 
 
 def test_verify():
-    pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_PUBKEY, 'rb') as f:
+        pubkey = f.read()
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         assert m.verify(pubkey)
 
 
 def test_verify_nosig(mar_cu):
-    pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(mar_cu.open('rb')) as m:
+    with open(TEST_PUBKEY, 'rb') as f:
+        pubkey = f.read()
+    with mar_cu.open('rb') as f, MarReader(f) as m:
         assert not m.verify(pubkey)
         assert m.get_errors() is None
 
 def test_verify_nosig_extra(mar_cue):
-    pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(mar_cue.open('rb')) as m:
+    with open(TEST_PUBKEY, 'rb') as f:
+        pubkey = f.read()
+    with mar_cue.open('rb') as f, MarReader(f) as m:
         assert not m.verify(pubkey)
         assert m.get_errors() is None
 
 
 def test_extract_mode(mar_cu, tmpdir):
-    with MarReader(mar_cu.open('rb')) as m:
+    with mar_cu.open('rb') as f, MarReader(f) as m:
         m.extract(str(tmpdir))
         assert tmpdir.join('message.txt').stat().mode & 0o777 == 0o755
 
 
 def test_verify_wrongkey(test_keys):
     private, public = test_keys[2048]
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         assert not m.verify(public)
 
 
 def test_verify_unsupportedalgo():
-    pubkey = open(TEST_PUBKEY, 'rb').read()
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_PUBKEY, 'rb') as f:
+        pubkey = f.read()
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         m.mardata.signatures.sigs[0].algorithm_id = 3
         with pytest.raises(ValueError) as e:
             m.verify(pubkey)
@@ -82,7 +86,7 @@ def test_verify_unsupportedalgo():
 
 
 def test_extract_bz2(tmpdir):
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         m.extract(str(tmpdir))
         assert sorted(tmpdir.listdir()) == [
             tmpdir.join(f) for f in [
@@ -97,7 +101,7 @@ def test_extract_bz2(tmpdir):
 
 
 def test_extract_nodecompress(tmpdir):
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         m.extract(str(tmpdir), decompress=None)
         assert sorted(tmpdir.listdir()) == [
             tmpdir.join(f) for f in [
@@ -114,7 +118,7 @@ def test_extract_nodecompress(tmpdir):
 
 
 def test_extract_badpath(tmpdir):
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         # Mess with the name
         e = m.mardata.index.entries[0]
         e.name = "../" + e.name
@@ -123,7 +127,7 @@ def test_extract_badpath(tmpdir):
 
 
 def test_extract_xz(tmpdir):
-    with MarReader(open(TEST_MAR_XZ, 'rb')) as m:
+    with open(TEST_MAR_XZ, 'rb') as f, MarReader(f) as m:
         m.extract(str(tmpdir))
         assert sorted(tmpdir.listdir()) == [
             tmpdir.join(f) for f in [
@@ -138,48 +142,49 @@ def test_extract_xz(tmpdir):
 
 
 def test_extract_baddecompression(tmpdir):
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         with pytest.raises(ValueError):
             m.extract(str(tmpdir), decompress='devnull')
 
 
 def test_compression_type_bz2():
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         assert m.compression_type == 'bz2'
 
 def test_compression_type_xz():
-    with MarReader(open(TEST_MAR_XZ, 'rb')) as m:
+    with open(TEST_MAR_XZ, 'rb') as f, MarReader(f) as m:
         assert m.compression_type == 'xz'
 
 def test_compression_type_none(mar_uu):
-    with MarReader(mar_uu.open('rb')) as m:
+    with mar_uu.open('rb') as f, MarReader(f) as m:
         assert m.compression_type is None
 
 def test_signature_type_sha1():
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         assert m.signature_type == 'sha1'
 
 def test_signature_type_none(mar_uu):
-    with MarReader(mar_uu.open('rb')) as m:
+    with mar_uu.open('rb') as f, MarReader(f) as m:
         assert m.signature_type is None
 
 def test_signature_type_sha384(mar_sha384):
-    with MarReader(mar_sha384.open('rb')) as m:
+    with mar_sha384.open('rb') as f, MarReader(f) as m:
         assert m.signature_type == 'sha384'
 
 def test_signature_type_unknown():
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         m.mardata.signatures.sigs[0].algorithm_id = 99
         assert m.signature_type == 'unknown'
 
 def test_calculate_hashes():
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         hashes = m.calculate_hashes()
         assert len(hashes) == 1
         assert hashes[0][0] == 1
         assert hashes[0][1][:20] == b'\xcd%\x0e\x82z%7\xdb\x96\xb4^\x063ZFV8\xfa\xe8k'
 
-        pubkey = open(TEST_PUBKEY, 'rb').read()
+        with open(TEST_PUBKEY, 'rb') as f:
+            pubkey = f.read()
         assert verify_signature(pubkey, m.mardata.signatures.sigs[0].signature, hashes[0][1], 'sha1')
 
 

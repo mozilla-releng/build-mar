@@ -177,7 +177,7 @@ def test_main_create_chdir(tmpdir):
     tmpmar = tmpdir.join('test.mar')
     cli.main(['-C', str(tmpdir), '-c', str(tmpmar), 'hello.txt'])
 
-    with MarReader(tmpmar.open('rb')) as m:
+    with tmpmar.open('rb') as f, MarReader(f) as m:
         assert len(m.mardata.index.entries) == 1
         assert m.mardata.index.entries[0].name == 'hello.txt'
 
@@ -233,7 +233,7 @@ def test_hash(capsys):
     assert cap.out == 'MEEwDQYJYIZIAWUDBAICBQAEMDASZm7fTyQ8YmHZUbTRgOIwzjjQ5AUY8LxwUm4euGUJk11WhHGf3PCpdNeVpGrvqg==\n'
 
 def test_add_signature_sha1(tmpdir, test_keys):
-    with MarReader(open(TEST_MAR_BZ2, 'rb')) as m:
+    with open(TEST_MAR_BZ2, 'rb') as f, MarReader(f) as m:
         hashes = m.calculate_hashes()
     assert hashes == [(1, b'\xcd%\x0e\x82z%7\xdb\x96\xb4^\x063ZFV8\xfa\xe8k')]
 
@@ -260,7 +260,7 @@ def test_add_signature_sha384(tmpdir, test_keys):
         with tmpmar.open('wb') as dst:
             add_signature_block(f, dst, 'sha384')
 
-    with MarReader(tmpmar.open('rb')) as m:
+    with tmpmar.open('rb') as f, MarReader(f) as m:
         hashes = m.calculate_hashes()
     assert hashes == [(2, b'\x08>\x82\x8d$\xbb\xa6Cg\xca\x15L\x9c\xf1\xde\x170\xbe\xeb8]\x17\xb9\xfdB\xa9\xd6\xf1(y\'\xf44\x1f\x01c%\xd4\x92\x1avm!\t\xd9\xc4\xfbv')]
 

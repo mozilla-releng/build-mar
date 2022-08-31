@@ -150,6 +150,7 @@ def test_bad_parameters(tmpdir):
         with MarWriter(f) as m:
             with tmpdir.as_cwd():
                 m.add_file('message.txt', compress='deflate')
+    f.close()
 
 
 @pytest.mark.parametrize('key_size, algo_id', [

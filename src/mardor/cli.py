@@ -111,7 +111,8 @@ def get_keys(keyfiles, signature_type):
                 raise ValueError('Invalid internal key name: {}'
                                  .format(keyfile))
         else:
-            key = open(keyfile, 'rb').read()
+            with open(keyfile, 'rb') as f:
+                key = f.read()
             keys.append(key)
     return keys
 
@@ -200,23 +201,27 @@ def do_hash(hash_algo, marfile, asn1=False):
     """Output the hash for this MAR file."""
     # Add a dummy signature into a temporary file
     dst = tempfile.TemporaryFile()
-    with open(marfile, 'rb') as f:
-        add_signature_block(f, dst, hash_algo)
+    try:
+        with open(marfile, 'rb') as f:
+            add_signature_block(f, dst, hash_algo)
 
-    dst.seek(0)
+        dst.seek(0)
 
-    with MarReader(dst) as m:
-        hashes = m.calculate_hashes()
-        h = hashes[0][1]
-        if asn1:
-            h = format_hash(h, hash_algo)
+        with MarReader(dst) as m:
+            hashes = m.calculate_hashes()
+            h = hashes[0][1]
+            if asn1:
+                h = format_hash(h, hash_algo)
 
-        print(base64.b64encode(h).decode('ascii'))
+            print(base64.b64encode(h).decode('ascii'))
+    finally:
+        dst.close()
 
 
 def do_add_signature(input_file, output_file, signature_file):
     """Add a signature to the MAR file."""
-    signature = open(signature_file, 'rb').read()
+    with open(signature_file, 'rb') as f:
+        signature = f.read()
     if len(signature) == 256:
         hash_algo = 'sha1'
     elif len(signature) == 512:
@@ -253,7 +258,8 @@ def check_args(parser, args):
 def get_key_from_cmdline(parser, args):
     """Return the signing key and signing algoritm from the commandline."""
     if args.keyfiles:
-        signing_key = open(args.keyfiles[0], 'rb').read()
+        with open(args.keyfiles[0], 'rb') as f:
+            signing_key = f.read()
         bits = get_keysize(signing_key)
         if bits == 2048:
             signing_algorithm = 'sha1'
