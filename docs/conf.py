@@ -31,8 +31,8 @@ version = release = u'2.0'
 pygments_style = 'trac'
 templates_path = ['.']
 extlinks = {
-    'issue': ('https://github.com/mozilla/build-mar/issues/%s', '#'),
-    'pr': ('https://github.com/mozilla/build-mar/pull/%s', 'PR #'),
+    'issue': ('https://github.com/mozilla-releng/build-mar/issues/%s', '#'),
+    'pr': ('https://github.com/mozilla-releng/build-mar/pull/%s', 'PR #'),
 }
 # on_rtd is whether we are on readthedocs.org
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
