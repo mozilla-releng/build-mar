@@ -50,7 +50,7 @@ setup(
     ),
     author='Chris AtLee',
     author_email='catlee@mozilla.com',
-    url='https://github.com/mozilla/build-mar',
+    url='https://github.com/mozilla-releng/build-mar',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
