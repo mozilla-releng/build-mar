@@ -16,6 +16,7 @@ def test_version_in_changelog():
     dist = get_distribution('mar')
     here = os.path.abspath(os.path.dirname(__file__))
     changelog_path = os.path.join(here, '..', 'CHANGELOG.rst')
-    changelog = open(changelog_path).read()
+    with open(changelog_path) as f:
+        changelog = f.read()
     assert re.search('^{}'.format(re.escape(mardor.version_str)), changelog,
                      re.M)

@@ -92,4 +92,5 @@ def test_safejoin():
 
 
 def test_filesize():
-    assert os.path.getsize(__file__) == filesize(open(__file__, 'rb'))
+    with open(__file__, 'rb') as f:
+        assert os.path.getsize(__file__) == filesize(f)
