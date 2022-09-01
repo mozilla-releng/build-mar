@@ -8,7 +8,7 @@ little bit helps, and credit will always be given.
 Bug reports
 ===========
 
-When `reporting a bug <https://github.com/mozilla/build-mar/issues>`_ please include:
+When `reporting a bug <https://github.com/mozilla-releng/build-mar/issues>`_ please include:
 
     * Your operating system name and version.
     * Any details about your local setup that might be helpful in troubleshooting.
@@ -24,7 +24,7 @@ articles, and such.
 Feature requests and feedback
 =============================
 
-The best way to send feedback is to file an issue at https://github.com/mozilla/build-mar/issues.
+The best way to send feedback is to file an issue at https://github.com/mozilla-releng/build-mar/issues.
 
 If you are proposing a feature:
 
@@ -37,7 +37,7 @@ Development
 
 To set up `build-mar` for local development:
 
-1. Fork `build-mar <https://github.com/mozilla/build-mar>`_
+1. Fork `build-mar <https://github.com/mozilla-releng/build-mar>`_
    (look for the "Fork" button).
 2. Clone your fork locally::
 
@@ -49,7 +49,7 @@ To set up `build-mar` for local development:
 
    Now you can make your changes locally.
 
-4. When you're done making changes, run all the checks, doc builder and spell checker with `tox <https://tox.readthedocs.io/en/latest/install.html>`_ one command::
+4. When you're done making changes, run all the checks, doc builder and spell checker with `tox <https://tox.wiki/en/latest/install.html>`_ one command::
 
     tox
 
@@ -73,8 +73,8 @@ For merging, you should:
 3. Add a note to ``CHANGELOG.rst`` about the changes.
 4. Add yourself to ``AUTHORS.rst``.
 
-.. [1] If you don't have all the necessary python versions available locally you can rely on Travis - it will
-       `run the tests <https://travis-ci.org/mozilla/build-mar/pull_requests>`_ for each change you add in the pull request.
+.. [1] If you don't have all the necessary python versions available locally you can rely on Taskcluster - it will
+       run the tests for each change you add in the pull request.
 
        It will be slower though ...
 

@@ -10,7 +10,7 @@ Overview
     * - docs
       - |docs|
     * - tests
-      - | |travis| |codecov|
+      - | |taskcluster|
     * - package
       - |version| |downloads| |wheel| |supported-versions| |supported-implementations|
 
@@ -18,13 +18,9 @@ Overview
     :target: https://readthedocs.org/projects/mar
     :alt: Documentation Status
 
-.. |travis| image:: https://travis-ci.org/mozilla/build-mar.svg?branch=master
-    :alt: Travis-CI Build Status
-    :target: https://travis-ci.org/mozilla/build-mar
-
-.. |codecov| image:: https://codecov.io/github/mozilla/build-mar/coverage.svg?branch=master
-    :alt: Coverage Status
-    :target: https://codecov.io/github/mozilla/build-mar
+.. |taskcluster| image:: https://firefox-ci-tc.services.mozilla.com/api/github/v1/repository/mozilla-releng/build-mar/master/badge.svg
+    :alt: Task Status
+    :target: https://firefox-ci-tc.services.mozilla.com/api/github/v1/repository/mozilla-releng/build-mar/master/latest
 
 .. |version| image:: https://img.shields.io/pypi/v/mar.svg?style=flat
     :alt: PyPI Package latest release

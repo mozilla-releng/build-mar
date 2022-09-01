@@ -84,8 +84,6 @@ tasks:
           $map:
             - short_name: py27
               image_tag: '2.7'
-            - short_name: py36
-              image_tag: '3.6'
             - short_name: py37
               image_tag: '3.7'
             - short_name: py38
@@ -94,7 +92,7 @@ tasks:
               image_tag: '3.9'
             - short_name: py310
               image_tag: '3.10'
-            - short_name: docs-localbuild
+            - short_name: docs
               image_tag: '3.10'
           each(python_version):
             $let:
