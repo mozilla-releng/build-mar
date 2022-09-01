@@ -278,8 +278,8 @@ def test_add_signature(tmpdir, mar_cue, test_keys):
         assert m1.verify(public_key)
 
     # Assert file contents are the same
-    with dest_mar.open('rb') as f, MarReader(f) as m1:
-        with MarReader(mar_cue.open('rb')) as m:
+    with dest_mar.open('rb') as f1, MarReader(f1) as m1:
+        with mar_cue.open('rb') as f, MarReader(f) as m:
             offset_delta = m1.mardata.data_offset - m.mardata.data_offset
             for (e, e1) in zip(m.mardata.index.entries, m1.mardata.index.entries):
                 assert e.name == e1.name
