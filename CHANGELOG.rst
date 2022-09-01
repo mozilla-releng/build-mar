@@ -1,5 +1,11 @@
 Changelog
 =========
+3.2.0 (2022-09-01)
+------------------
+* Dropped python3.6 support
+* Added python3.9 and python3.10 support
+* Fixed file descriptor leaks
+
 3.1.0 (2019-02-19)
 ------------------
 * Added new autograph stage public key
