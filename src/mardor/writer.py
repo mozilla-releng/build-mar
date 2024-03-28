@@ -114,7 +114,7 @@ class MarWriter(object):
         self.finish()
         self.flush()
 
-    def add(self, path, compress=None):
+    def add(self, path, compress=None, bcj=None):
         """Add `path` to the MAR file.
 
         If `path` is a file, it will be added directly.
@@ -125,45 +125,49 @@ class MarWriter(object):
             path (str): path to file or directory on disk to add to this MAR
                 file
             compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            bcj (str): If compress is 'xz', one of 'x86' or None.
         """
         if os.path.isdir(path):
-            self.add_dir(path, compress)
+            self.add_dir(path, compress, bcj)
         else:
-            self.add_file(path, compress)
+            self.add_file(path, compress, bcj)
 
-    def add_dir(self, path, compress):
+    def add_dir(self, path, compress, bcj=None):
         """Add all files under directory `path` to the MAR file.
 
         Args:
             path (str): path to directory to add to this MAR file
-            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            compress (str): One of 'xz', 'bz2', or None.
+            bcj (str): If compress is 'xz', one of 'x86' or None.
         """
         if not os.path.isdir(path):
             raise ValueError('{} is not a directory'.format(path))
         for root, dirs, files in os.walk(path):
             for f in files:
-                self.add_file(os.path.join(root, f), compress)
+                self.add_file(os.path.join(root, f), compress, bcj)
 
-    def add_fileobj(self, fileobj, path, compress, flags=None):
+    def add_fileobj(self, fileobj, path, compress, flags=None, bcj=None):
         """Add the contents of a file object to the MAR file.
 
         Args:
             fileobj (file-like object): open file object
             path (str): name of this file in the MAR file
-            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            compress (str): One of 'xz', 'bz2', or None.
+            bcj (str): If compress is 'xz', one of 'x86' or None.
             flags (int): permission of this file in the MAR file. Defaults to the permissions of `path`
         """
         f = file_iter(fileobj)
         flags = flags or os.stat(path) & 0o777
-        return self.add_stream(f, path, compress, flags)
+        return self.add_stream(f, path, compress, flags, bcj)
 
-    def add_stream(self, stream, path, compress, flags):
+    def add_stream(self, stream, path, compress, flags, bcj=None):
         """Add the contents of an iterable to the MAR file.
 
         Args:
             stream (iterable): yields blocks of data
             path (str): name of this file in the MAR file
             compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            bcj (str): If compress is 'xz', one of 'x86' or None.
             flags (int): permission of this file in the MAR file
         """
         self.data_fileobj.seek(self.last_offset)
@@ -171,7 +175,7 @@ class MarWriter(object):
         if compress == 'bz2':
             stream = bz2_compress_stream(stream)
         elif compress == 'xz':
-            stream = xz_compress_stream(stream)
+            stream = xz_compress_stream(stream, bcj)
         elif compress is None:
             pass
         else:
@@ -193,12 +197,13 @@ class MarWriter(object):
         self.entries.append(e)
         self.last_offset += e['size']
 
-    def add_file(self, path, compress):
+    def add_file(self, path, compress, bcj=None):
         """Add a single file to the MAR file.
 
         Args:
             path (str): path to a file to add to this MAR file.
-            compress (str): One of 'xz', 'bz2', or None. Defaults to None.
+            compress (str): One of 'xz', 'bz2', or None.
+            bcj (str): If compress is 'xz', one of 'x86' or None.
         """
         if not os.path.isfile(path):
             raise ValueError('{} is not a file'.format(path))
@@ -206,7 +211,7 @@ class MarWriter(object):
 
         with open(path, 'rb') as f:
             flags = os.stat(path).st_mode & 0o777
-            self.add_fileobj(f, path, compress, flags)
+            self.add_fileobj(f, path, compress, flags, bcj)
 
     def write_header(self):
         """Write the MAR header to the file.
