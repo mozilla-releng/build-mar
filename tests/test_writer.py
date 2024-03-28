@@ -207,11 +207,14 @@ def test_adddir_as_file(tmpdir):
 def test_xz_writer(tmpdir):
     message_p = tmpdir.join('message.txt')
     message_p.write('hello world')
+    x86_message_p = tmpdir.join('message_x86.txt')
+    x86_message_p.write('hello world')
     mar_p = tmpdir.join('test.mar')
     with mar_p.open('wb') as f:
         with MarWriter(f) as m:
             with tmpdir.as_cwd():
                 m.add('message.txt', compress='xz')
+                m.add('message_x86.txt', compress='xz', bcj='x86')
 
     assert mar_p.size() > 0
 
@@ -219,10 +222,13 @@ def test_xz_writer(tmpdir):
         with MarReader(f) as m:
             assert m.mardata.additional is None
             assert m.mardata.signatures is None
-            assert len(m.mardata.index.entries) == 1
+            assert len(m.mardata.index.entries) == 2
             assert m.mardata.index.entries[0].name == 'message.txt'
+            assert m.mardata.index.entries[1].name == 'message_x86.txt'
             m.extract(str(tmpdir.join('extracted')))
             assert (tmpdir.join('extracted', 'message.txt').read('rb') ==
+                    b'hello world')
+            assert (tmpdir.join('extracted', 'message_x86.txt').read('rb') ==
                     b'hello world')
 
 

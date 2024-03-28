@@ -31,6 +31,13 @@ def build_argparser():
                               help="channel this MAR file is applicable to")
     create_group.add_argument("files", nargs=REMAINDER,
                               help="files to add to the MAR file")
+    create_group.add_argument(
+        "--x86",
+        action="store_const",
+        dest="bcj",
+        const="x86",
+        help="use x86 BCJ filter for XZ compression",
+    )
 
     extract_group = parser.add_argument_group("Extract a MAR file")
     extract_group.add_argument("-x", "--extract", help="extract MAR", metavar="MARFILE")
@@ -186,7 +193,7 @@ def do_list(marfile, detailed=False):
 
 
 def do_create(marfile, files, compress, productversion=None, channel=None,
-              signing_key=None, signing_algorithm=None):
+              signing_key=None, signing_algorithm=None, bcj=None):
     """Create a new MAR file."""
     with open(marfile, 'w+b') as f:
         with MarWriter(f, productversion=productversion, channel=channel,
@@ -194,7 +201,7 @@ def do_create(marfile, files, compress, productversion=None, channel=None,
                        signing_algorithm=signing_algorithm,
                        ) as m:
             for f in files:
-                m.add(f, compress=compress)
+                m.add(f, compress=compress, bcj=bcj)
 
 
 def do_hash(hash_algo, marfile, asn1=False):
@@ -254,6 +261,9 @@ def check_args(parser, args):
     if args.hash and len(args.files) != 1:
         parser.error("Must specify a file to output the hash for")
 
+    if args.create and args.bcj and args.compression != "xz":
+        parser.error("BCJ filter is only valid for XZ compression")
+
 
 def get_key_from_cmdline(parser, args):
     """Return the signing key and signing algoritm from the commandline."""
@@ -309,7 +319,8 @@ def main(argv=None):
             os.chdir(args.chdir)
         do_create(marfile, args.files, args.compression,
                   productversion=args.productversion, channel=args.channel,
-                  signing_key=signing_key, signing_algorithm=signing_algorithm)
+                  signing_key=signing_key, signing_algorithm=signing_algorithm,
+                  bcj=args.bcj)
 
     elif args.hash:
         do_hash(args.hash, args.files[0], args.asn1)
