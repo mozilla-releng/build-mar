@@ -142,7 +142,7 @@ def bz2_decompress_stream(src):
             yield decoded
 
 
-def xz_compress_stream(src):
+def xz_compress_stream(src, bcj=None):
     """Compress data from `src`.
 
     Args:
@@ -152,13 +152,17 @@ def xz_compress_stream(src):
         blocks of compressed data
 
     """
-    compressor = lzma.LZMACompressor(
-        check=lzma.CHECK_CRC64,
-        filters=[
-            {"id": lzma.FILTER_X86},
+    filters = []
+    if bcj == "x86":
+        filters.append({"id": lzma.FILTER_X86})
+    filters.extend([
             {"id": lzma.FILTER_LZMA2,
              "preset": lzma.PRESET_DEFAULT},
         ])
+    compressor = lzma.LZMACompressor(
+        check=lzma.CHECK_CRC64,
+        filters=filters,
+    )
     for block in src:
         encoded = compressor.compress(block)
         if encoded:
