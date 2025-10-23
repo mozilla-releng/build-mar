@@ -57,7 +57,7 @@ tasks:
           deadline: {$fromNow: '2 hours'}
           expires: ${expires_in}
           provisionerId: releng-t
-          workerType: linux-gcp
+          workerType: linux-docker
           retries: 5
           payload:
             maxRunTime: 600
