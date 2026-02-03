@@ -39,6 +39,12 @@ dev = [
     "pytest",
 ]
 
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "requests[security]",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
