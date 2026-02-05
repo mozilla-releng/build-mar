@@ -4,7 +4,7 @@
 
 ARG PYTHON_VERSION
 
-FROM ghcr.io/astral-sh/uv:0.9.28@sha256:59240a65d6b57e6c507429b45f01b8f2c7c0bbeee0fb697c41a39c6a8e3a4cfb AS uv
+FROM ghcr.io/astral-sh/uv:0.9.30@sha256:538e0b39736e7feae937a65983e49d2ab75e1559d35041f9878b7b7e51de91e4 AS uv
 FROM python:$PYTHON_VERSION-slim
 LABEL maintainer="Release Engineering <release@mozilla.com>"
 
