@@ -11,7 +11,7 @@ transforms:
 tasks:
     pytest:
         matrix:
-            python: ['38', '39', '310']
+            python: ['38', '39', '310', '311', '312', '313', '314']
         description: "pytest py{matrix[python]}"
         run-on-tasks-for:
             - "github-pull-request"
