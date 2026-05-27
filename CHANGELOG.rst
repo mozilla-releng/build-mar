@@ -1,5 +1,10 @@
 Changelog
 =========
+3.2.1 (2026-05-27)
+------------------
+* Fixed lzma BCJ filter being applied unconditionally; added API and CLI option to set the filter explicitly
+* Added Python 3.11, 3.12, 3.13, and 3.14 to supported versions
+
 3.2.0 (2022-09-01)
 ------------------
 * Dropped python3.6 support
